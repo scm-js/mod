@@ -53,7 +53,7 @@ export type RaceFile = keyof typeof RACE_FILES;
  * which is there in a form of Remastered's own. The list is the executable's own names for what it shows during a
  * game; the menus before and after one (`glue\…`) are left out, the engine never being there.
  */
-export const INTERFACE_NAMES: readonly string[] = [
+export const INTERFACE_NAMES: readonly string[] = /* @__PURE__ */ (() => [
   ...["font8", "font10", "font12", "font14", "font16", "font16x"].map((n) => `font\\${n}.fnt`),
   "parallax\\star.spk",
   ...["minimap", "stat_f10", "statdata", "statfluf", "statlb", "statport", "statres"].map((n) => `rez\\${n}.bin`),
@@ -66,7 +66,7 @@ export const INTERFACE_NAMES: readonly string[] = [
   ...["abrtmenu", "allyfltr", "dlgfatal", "gamemenu", "help", "helpmenu", "lmission", "loadgame", "minimappreview", "msgfltr", "netdlg", "objctdlg", "ok", "okcancel", "options",
     "quit", "quit2mnu", "quitrepl", "restart", "savegame", "snd_dlg", "spd_dlg", "teamfltr", "timeout", "tips_dlg", "video", "wait", "wmission"].map((n) => `rez\\${n}.bin`),
   "rez\\help_txt.tbl", "rez\\network.tbl", "rez\\tips.tbl",
-];
+])();
 
 /**
  * Every file the game may ask for by name in a game on `tileset` (its name: `jungle`), whatever the races, at the

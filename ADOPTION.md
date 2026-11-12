@@ -41,7 +41,7 @@ it now; "caller" means it stays where it is.
 | What was left out | `ModSource.left` | added: `d.left`, each with its reason (`dot-folder`, `system`, `game-copy`, `too-deep`, `program`, `library`, `same-name`, `outside`, `beside`) | `left` held paths only; the CLI's sentence ("Not the game's, left out: …") stays in the CLI. |
 | A copy of the game in what was given | `ModSource.gameCopy`, `gameCopyFolders`, `gameCopyWords` | gives: `d.gameCopy`, `gameCopyFolders`, and the `game-copy` message (`folder`, `list`, `more`) in `d.said` | `gameCopyWords` is the message; translate it by key. "A copy of the game and nothing else" is the `copy-only` message, not an error. |
 | Archives read without a list, and names listed but not held | `ModSource.probed`, `ModSource.unheld` | another name: `layer.probed`; `d.unreadable` (names an archive lists and does not hold, and names that could not be read) | |
-| The hash, without plugins, older | `hash.ts` (`modHashOfDigests`, `ModHash`); `cli/src/mod/hash.ts#sourceHash`; installer `dataSetHashOf` | gives: `d.identity` (`hash`, `withoutPlugins`, `lines`, `plugins`, `older`, `beforeCode`, `declared`) | By the rule of 2026-11-11 (below). `older.left` (the system files' names) is `d.left` where `why === "system"`. |
+| The hash, without plugins, older | `hash.ts` (`modHashOfDigests`, `ModHash`); `cli/src/mod/hash.ts#sourceHash`; installer `dataSetHashOf` | gives: `d.identity` (`hash`, `withoutPlugins`, `lines`, `plugins`, `older`, `beforeCode`, `declared`) | By the rule of 2026-11-11 (below). `older.left` (the system files' names) is `d.identity.older.files`: the game names of the files whose lines the older hash had, loose ones and members of the mod's archives alike (Burning Ground's exe: `glue\battle.net\backgrounds\thumbs.db`). `d.left` lists paths of the tree only, so an archive's member is never in it. |
 | The hash of game files alone; the hash of the files that differ from the person's game | `sourceHash#gameFilesOnly`; `replaymod.ts#sourceHashes` (`changed`) | caller | Both are older names a replay may carry, made from lines the description has: `hashLines(d.identity.lines.filter(l => !/\.fgp\t/.test(l)))`, and `ReadOptions.onFile` hands each file's bytes to compare with a copy of the game. Matching a replay's tag is the CLI's. |
 | `mod.json` beside a mod | `source.ts` (`name`, `races`), `header.ts#linkOf`, `overlay.ts` (`link`, `url`), installer `pickedFolderRaces` | added: `readModJson`, `isModJsonPath`, `d.manifest` (`path`, `base`, `format`), with `d.name`, `d.link`, `d.races`, `d.identity.declared` | One rule for which file and what of it (below). |
 | The mod folder's manifest (the text form `mod unpack` writes) | `folder.ts` (`ModManifest`, `readManifest`, `tidyManifest`, `MOD_FORMAT`) | caller | It is the pack and unpack format, not a fact about a mod's files. The package recognises one (`format`, and the `text-folder` message) so a reader knows to pack it first. |
@@ -181,7 +181,9 @@ scm-sim's `src/mods/read/` is where this package came from; scm-sim deletes it a
   compared one of these sentences compares the key now.
 - **`named.plugins`** is plugin file names only. A patcher exe's own plugins, which were joined
   into it as `"<exe> (FireGraft patcher plugin <name>, id <hex>)"`, are
-  `named.patcherPlugins` (`{ exe, form, name, id }`); the page builds its line from them.
+  `named.patcherPlugins` (`{ exe, form, name, id }`). `patcherPluginWords(entry)` gives each as
+  the message `patcher-plugin` (the exe's file name as given, where the page lower-cased it), so
+  the page's own `patcherPluginWords` goes.
 - **New in the description**: `game`, `manifest`, `left`, `duplicates` (and a `duplicate`
   message in `said`, and `text-folder` for a folder in the text form `scmjs mod unpack` writes).
 - **`mod.json`**: only the one in the folder given or one folder down (never in a game folder)
@@ -203,6 +205,12 @@ scm-sim's `src/mods/read/` is where this package came from; scm-sim deletes it a
   eea56b519dca4872 is its `beforeCode`). `beforeCode` is now computed without that line too, and
   so is `older`. `FiregraftFile.byList` stays, saying how the project was found.
 - **Removed**: `sharedFolder` (the root rule above no longer needs it), the type alias
-  `PatcherPlugin` (use `CarriedModule`). Not exported from the package's entry, though still in
-  its files: `leafOf`, `folderOf`.
+  `PatcherPlugin` (use `CarriedModule`). `leafOf` and `folderOf` are exported, so a copy of
+  either goes.
+- **`identity.older` has `files`**: the game names its lines counted that the hash does not
+  (`OlderHashes & { files }`). A page that keeps `older` in its manifest keeps them too, or
+  takes `{ hash, withoutPlugins }` of it; a test comparing `older` with `toEqual` sees the field.
+- **A DLL under `plugins/` handed over in the game's paths** (`layout: "game"`) is a library
+  only, where it was also a game-file line; such a set now hashes as its folder does. No pin of
+  scm-sim's moves: its game-layout sets hold no DLL under `plugins/`.
 - **Node 20** at least.

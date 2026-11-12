@@ -11,11 +11,11 @@
 // The reader and its description.
 export {
   readMod, plugInOrder, planPlugins, readPath, fileReaders, moduleBytes, openLayer, firegraftBytes, firegraftFilesOf,
-  isPluginFile, isCodeFile, PRIORITY,
+  isPluginFile, isCodeFile, patcherPluginWords, PRIORITY,
   type ModDescription, type ReadOptions, type Loader, type LoaderKind, type Layer, type LayerFile, type Module, type ModuleRole,
   type ModuleSource, type FiregraftFile, type FiregraftPatch, type CarriedFile, type Identity, type LeftReason,
 } from "./mod.ts";
-export { filesOf, isSystemFile, inDotFolder, SYSTEM_FILES, type ModEntry, type ModFiles } from "./files.ts";
+export { filesOf, isSystemFile, inDotFolder, leafOf, folderOf, SYSTEM_FILES, type ModEntry, type ModFiles } from "./files.ts";
 export { descriptionLines, descriptionText } from "./words.ts";
 
 // Words: every sentence the reader can produce, by key.

@@ -44,9 +44,9 @@ export function moduleFacts(b: Uint8Array): ModuleFacts {
 
 /** The interface in words, for a description printed or a sentence. */
 export const ENTRY_WORDS: Readonly<Record<ModuleEntry, ModMessage>> = {
-  mpqdraft: say("entry-mpqdraft", {}),
-  bwl: say("entry-bwl", {}),
-  snp: say("entry-snp", {}),
-  dllmain: say("entry-dllmain", {}),
-  none: say("entry-none", {}),
+  mpqdraft: /* @__PURE__ */ say("entry-mpqdraft", {}),
+  bwl: /* @__PURE__ */ say("entry-bwl", {}),
+  snp: /* @__PURE__ */ say("entry-snp", {}),
+  dllmain: /* @__PURE__ */ say("entry-dllmain", {}),
+  none: /* @__PURE__ */ say("entry-none", {}),
 };

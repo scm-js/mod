@@ -40,6 +40,23 @@ describe("the mod's hash, pinned", () => {
   }
 });
 
+describe("a library handed over in the game's paths", () => {
+  it("is a module, not also a game file: the same mod as its folder", async () => {
+    const files = { "arr/units.dat": "units", "plugins/a.qdp": "plugin a", "plugins/msvcp140.dll": "runtime", "lib/helper.dll": "not beside the plugins" };
+    const asFolder = await readMod(await treeOf("Mod", pieces("Mod", files)));
+    const asGame = await readMod(filesOf("Mod", Object.fromEntries(Object.entries(files).map(([p, d]) => [p, text(d)])), { layout: "game" }));
+    expect(asGame.modules.filter((m) => m.role === "library").map((m) => m.name)).toEqual(["msvcp140.dll"]);
+    expect(asGame.identity.lines.some((l) => l.startsWith("plugins\\msvcp140.dll\t"))).toBe(false);
+    // (a DLL elsewhere, handed over in the game's paths, is a member like any other: the folder's has it beside, as no game file)
+    const without = (lines: string[]) => lines.filter((l) => !l.startsWith("lib\\helper.dll\t"));
+    expect(without(asGame.identity.lines)).toEqual(asFolder.identity.lines);
+    const same = await readMod(filesOf("Mod", Object.fromEntries(Object.entries(files).filter(([p]) => p !== "lib/helper.dll").map(([p, d]) => [p, text(d)])), { layout: "game" }));
+    const folderSame = await readMod(await treeOf("Mod", pieces("Mod", Object.fromEntries(Object.entries(files).filter(([p]) => p !== "lib/helper.dll")))));
+    expect({ hash: same.identity.hash, withoutPlugins: same.identity.withoutPlugins, lines: same.identity.lines })
+      .toEqual({ hash: folderSame.identity.hash, withoutPlugins: folderSame.identity.withoutPlugins, lines: folderSame.identity.lines });
+  });
+});
+
 describe("a FireGraft project found only through FireGraft's own list", () => {
   it("has its line as a listed one: the same project listed and unlisted, one hash; the hash before is the earlier rule's", async () => {
     const exe = (list: boolean) => patcherExe([{ id: 0x1b4d69b6, bytes: library("GPTP.qdp") }], modArchive(list), { tablesFirst: !list }).exe;
@@ -173,6 +190,18 @@ const SYSTEM: Record<string, string> = {
 /** Names that only hold one of the list's: files of the mod like any other. */
 const NOT_SYSTEM = ["sound/mydesktop.ini", "sound/desktop.ini.bak", "sound/desktop.ini/voice.wav", "unit/thumbs.db.txt", "unit/xthumbs.db", "arr/.ds_store2", "arr/a._b", "arr/_.units.dat", "lua/x.directory", "arr/icon", "my__macosx/units.dat", "samase/config.ini"];
 
+describe("an operating system's file packed in the mod's archive", () => {
+  it("has no line, and `older.files` names it, though no path of the tree is it", async () => {
+    const mpq = new Creator({ listfile: true });
+    mpq.addFile("arr\\units.dat", text("units"));
+    mpq.addFile("glue\\battle.net\\backgrounds\\Thumbs.db", text("thumbnails"));
+    const d = await readMod(filesOf("Mod", { "Mod/mod.mpq": mpq.write() }));
+    expect(d.files.map((f) => f.name)).toEqual(["arr\\units.dat"]);
+    expect(d.left).toEqual([]);
+    expect(d.identity.older).toEqual({ hash: ruleAsWas({ "arr\\units.dat": "units", "glue\\battle.net\\backgrounds\\thumbs.db": "thumbnails" }), files: ["glue\\battle.net\\backgrounds\\thumbs.db"] });
+  });
+});
+
 describe("an operating system's files are not a mod's", () => {
   it("is told by name alone, any case and either slash; a name that only holds one is a file like any other", () => {
     for (const path of Object.keys(SYSTEM)) {
@@ -213,7 +242,7 @@ describe("an operating system's files are not a mod's", () => {
       expect(seen.identity.lines, path).toEqual(plain.identity.lines);
       expect(seen.files.map((f) => f.name), path).toEqual(plain.files.map((f) => f.name));
       expect(seen.left, path).toEqual([{ path: `a mod/${path}`, why: "system" }]);
-      expect(seen.identity.older, path).toEqual({ hash: ruleAsWas(gameNames({ ...MOD, [path]: data })) });
+      expect(seen.identity.older, path).toEqual({ hash: ruleAsWas(gameNames({ ...MOD, [path]: data })), files: [path.replace(/\//g, "\\").toLowerCase()] });
     }
     for (const path of NOT_SYSTEM) {
       const other = await readMod(folderOf({ ...MOD, [path]: "x" }));
@@ -240,7 +269,9 @@ describe("an operating system's files are not a mod's", () => {
     // the older form: the lines of the files where a game file would be (the loose one over the archive's, as the game
     // layers them; the zip's folder was a folder like any other then), with the plugins and without
     const were = { ...gameNames(MOD), "rez\\stat_txt.tbl": "made strings", "y.fgp": "a project", "sound\\desktop.ini": "[loose]", "sound\\cm\\thumbs.db": "t", "__macosx\\arr\\._units.dat": "fork" };
-    expect(packed.identity.older).toEqual({ hash: ruleAsWas({ ...were, "plugins\\x.qdp": "a plugin's bytes" }), withoutPlugins: ruleAsWas(were) });
+    expect(packed.identity.older).toEqual({ hash: ruleAsWas({ ...were, "plugins\\x.qdp": "a plugin's bytes" }), withoutPlugins: ruleAsWas(were), files: ["__macosx\\arr\\._units.dat", "sound\\cm\\thumbs.db", "sound\\desktop.ini"] });
+    // (the archive's own: named, though no path of the tree is it)
+    expect(packed.left.map((l) => l.path)).not.toContain("sound\\cm\\thumbs.db");
     expect(clean.identity.older).toBeUndefined();
     // macOS's half of a plugin and of a project: no plugin, no project
     const forked = await readMod(folderOf({ ...plugged, "made.mpq": mpq.write(), "plugins/._x.qdp": "fork", "._y.fgp": "fork" }));
