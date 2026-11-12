@@ -16,7 +16,7 @@ import { isZip, readZip, ZipError, zipFiles } from "./zip.ts";
 import { firegraftLine, hashLines, hashLinesAsWere, hasCodeLine, pluginLine, sha256Hex, type EarlierHash, type OlderHashes } from "./hash.ts";
 import { GAME_ARCHIVE_PRIORITY, GAME_ARCHIVES, GAME_FOLDERS, gameName, readsStartupData } from "./gameNames.ts";
 import { gameCopyFiles, gameCopyFolders, gameCopyText, modRoot } from "./layout.ts";
-import { probeNames, type TablesOf } from "./names.ts";
+import { foundByStockNamesOnly, probeNames, type TablesOf } from "./names.ts";
 import { FIREGRAFT_LISTS, FIREGRAFT_MOMENT, firegraftPick, listedNames } from "./firegraft.ts";
 import { moduleFacts, type ModuleEntry } from "./modules.ts";
 import { holdsString, programEnd } from "./pe.ts";
@@ -259,7 +259,12 @@ export interface ModDescription {
 }
 
 export interface ReadOptions {
-  /** The person's own copy of the game, by game name: its tables name more files to look for in an archive without a list. */
+  /**
+   * A copy of the game's files, by game name.
+   * @deprecated Not asked since 1.2.0: an archive without a list is looked into for the names 1.16.1's own tables give,
+   * whoever reads it, so what it is found to hold depends on the mod's bytes alone. Kept so that a caller passing it
+   * still compiles.
+   */
   tables?: TablesOf;
   /** Hears how far the reading is. */
   progress?: (message: ModMessage) => void;
@@ -516,6 +521,10 @@ export async function readMod(tree: ModFiles, o: ReadOptions | UnhashedReadOptio
 
   // The archives' files, in the order given; each one's FireGraft files, and its own lists read by name.
   const layers: Layer[] = [];
+  // (an archive without a list: the names it was found to hold only by 1.16.1's own tables' names, by its path)
+  const stockOnly = new Map<string, Set<string>>();
+  // (each file's digest once, for the earlier form read again over fewer files)
+  const digests = new Map<string, string | null>();
   let fireIndex = 0, draftIndex = 0;
   // (in a function of its own, so that no register of this one holds an archive once the layers are made: an archive
   // no layer is, a plugin loader's packing, is let go before the files are hashed)
@@ -528,7 +537,9 @@ export async function readMod(tree: ModFiles, o: ReadOptions | UnhashedReadOptio
     const probed = !names.length;
     if (probed) {
       progress(say("probing", { path: a.path }));
-      names = await probeNames(archive, o.tables);
+      names = await probeNames(archive);
+      // (what a reader before 1.2.0 that passed no tables did not find: for the earlier form without them)
+      stockOnly.set(a.path, foundByStockNamesOnly(archive, names));
     }
     const leaf = leafOf(a.path).toLowerCase();
     const replaces = a.form === "mpq" && (GAME_ARCHIVES as readonly string[]).includes(leaf) && atTop(a.path) ? leaf : undefined;
@@ -687,17 +698,8 @@ export async function readMod(tree: ModFiles, o: ReadOptions | UnhashedReadOptio
   // Laid as storm searches them: by priority, lowest first, so that the later wins (equal ones in the order found).
   layers.sort((a, b) => a.priority - b.priority);
   // (each game file from the last layer that gives it)
-  const readers = new Map<string, () => Promise<Uint8Array>>();
-  const winner = new Map<string, LayerFile & { layer: number }>();
   const looseByPath = new Map(looseFiles.map((f) => [f.path!, f.read]));
-  layers.forEach((l, k) => {
-    const a = l.kind === "archive" ? archives.find((x) => x.path === l.path)! : null;
-    for (const f of l.files) {
-      winner.set(f.name, { ...f, layer: k });
-      readers.set(f.name, a ? async () => a.archive!.readFile(f.member!) ?? new Uint8Array(0) : looseByPath.get(f.path!)!);
-    }
-  });
-  const files = [...winner.values()].sort((a, b) => byName(a.name, b.name));
+  const files = winnersOf(layers);
 
   // A copy of the game with nothing of a mod beside it.
   const copies = gameCopyFolders(gameCopy);
@@ -727,7 +729,13 @@ export async function readMod(tree: ModFiles, o: ReadOptions | UnhashedReadOptio
     a.archive = null;
   }
   if (o.archives) for (const a of archives) if (a.archive) o.archives.set(a.path, a.archive);
-  const hashed = hashing ? await hashPlan({ files, layers, read: (f) => readers.get(f.name)!(), projects, plugins: pluginSha, fileLines, system: systemPlan }, progress, o.onFile) : null;
+  // (a file of a layer, by its layer: the game files are read from the layer that wins each, and the earlier form without
+  // the stock names may take a name from a lower one)
+  const layerArchive = layers.map((l) => (l.kind === "archive" ? archives.find((x) => x.path === l.path)! : null));
+  const readOfLayer = async (f: LayerFile & { layer: number }) => { const a = layerArchive[f.layer]; return a ? a.archive!.readFile(f.member!) ?? new Uint8Array(0) : looseByPath.get(f.path!)!(); };
+  const toHash: HashPlan = { files, layers, read: readOfLayer, projects, plugins: pluginSha, fileLines, system: systemPlan };
+  const stockOnlyByLayer = new Map(layers.flatMap((l, k) => (stockOnly.get(l.path)?.size ? [[k, stockOnly.get(l.path)!] as const] : [])));
+  const hashed = hashing ? await withoutStockNames(await hashPlan(toHash, progress, o.onFile, digests), toHash, stockOnlyByLayer, digests) : null;
   if (hashed) unreadable.push(...hashed.unreadable);
 
   // mod.json: its name, its makers' address, its races, the game it is for, the hash a tool wrote.
@@ -806,15 +814,27 @@ interface HashPlan {
 interface Hashed { lines: string[]; hash: string; withoutPlugins: string; beforeCode?: string; older?: Identity["older"]; earlier: EarlierHash[]; unreadable: string[] }
 
 /** The identity's hashes: one rule for `readMod` and `modIdentity`, so the two cannot differ. */
-async function hashPlan(p: HashPlan, progress: (m: ModMessageOf<"reading-files">) => void, onFile: ReadOptions["onFile"]): Promise<Hashed> {
+async function hashPlan(p: HashPlan, progress: (m: ModMessageOf<"reading-files">) => void, onFile: ReadOptions["onFile"], digests = new Map<string, string | null>()): Promise<Hashed> {
   const lines: string[] = [], unreadable: string[] = [];
+  // (a digest worked out once: `digests` keeps each one, a file's read again only when it is not there)
+  const digestOf = async (key: string, read: () => Promise<Uint8Array>): Promise<string> => {
+    const kept = digests.get(key);
+    if (kept) return kept;
+    const d = await sha256Hex(await read());
+    digests.set(key, d);
+    return d;
+  };
   let done = 0, last = 0;
   for (const f of p.files) {
-    let bytes: Uint8Array;
-    try { bytes = await p.read(f); }
-    catch { const l = p.layers[f.layer]; unreadable.push(l.kind === "archive" ? `${f.name} (${l.path})` : f.name); done++; continue; }
-    lines.push(`${f.name}\t${await sha256Hex(bytes)}`);
-    await onFile?.(f, bytes);
+    const key = `file\0${f.layer}\0${f.name}`;
+    let sha = digests.get(key), bytes: Uint8Array | null = null;
+    if (sha === undefined) {
+      try { bytes = await p.read(f); sha = await sha256Hex(bytes); } catch { sha = null; }
+      digests.set(key, sha);
+    }
+    if (sha === null) { const l = p.layers[f.layer]; unreadable.push(l.kind === "archive" ? `${f.name} (${l.path})` : f.name); done++; continue; }
+    lines.push(`${f.name}\t${sha}`);
+    if (bytes) await onFile?.(f, bytes);
     done++;
     if (Date.now() - last > 200) { last = Date.now(); progress(say("reading-files", { done, total: p.files.length })); }
   }
@@ -822,7 +842,7 @@ async function hashPlan(p: HashPlan, progress: (m: ModMessageOf<"reading-files">
   // none: it changes the game either way. Until 2026-11-11 the last had no line: `was` are the lines as they were.)
   const was = [...lines];
   for (const f of p.projects) {
-    const line = firegraftLine(f.name, await sha256Hex(await f.read()));
+    const line = firegraftLine(f.name, await digestOf(`project\0${f.name}`, f.read));
     lines.push(line);
     if (!f.byList) was.push(line);
   }
@@ -835,7 +855,7 @@ async function hashPlan(p: HashPlan, progress: (m: ModMessageOf<"reading-files">
   // with them (and the plugin files' lines alone, as the code had then).
   let older: Identity["older"];
   const counted: string[] = [];
-  for (const s of p.system) { try { counted.push(`${s.name}\t${await sha256Hex(await s.read())}`); } catch { /* left out then too */ } }
+  for (const s of p.system) { try { counted.push(`${s.name}\t${await digestOf(`system\0${s.name}`, s.read)}`); } catch { /* left out then too */ } }
   if (counted.length) {
     const were = [...was, ...counted];
     const sorted = [...counted].sort((a, b) => byName(lineName(a), lineName(b)));
@@ -852,6 +872,36 @@ async function hashPlan(p: HashPlan, progress: (m: ModMessageOf<"reading-files">
 }
 
 const lineName = (l: string) => l.slice(0, l.indexOf("\t"));
+
+/** The game files after laying: each name once, from the last layer that gives it (`skip`: names a layer is taken not to give). */
+function winnersOf(layers: readonly Layer[], skip?: ReadonlyMap<number, ReadonlySet<string>>): (LayerFile & { layer: number })[] {
+  const winner = new Map<string, LayerFile & { layer: number }>();
+  layers.forEach((l, k) => { const not = skip?.get(k); for (const f of l.files) if (!not?.has(f.name)) winner.set(f.name, { ...f, layer: k }); });
+  return [...winner.values()].sort((a, b) => byName(a.name, b.name));
+}
+
+/**
+ * The hashes with the forms a reader before 1.2.0 that passed no `tables` gave, where an archive without a list was
+ * found to hold a file only by 1.16.1's own tables' names (`stockOnly`: those names, by layer): the files without them
+ * (a lower layer's file of that name where one gives it), hashed by the current rule (`without-stock-names`) and by
+ * each earlier one (marked `withoutStockNames`). A form is added only when it holds a hash the list has not, so a mod
+ * with no such file has the list it had.
+ */
+async function withoutStockNames(h: Hashed, p: HashPlan, stockOnly: ReadonlyMap<number, ReadonlySet<string>>, digests: Map<string, string | null>): Promise<Hashed> {
+  if (!stockOnly.size) return h;
+  const v = await hashPlan({ ...p, files: winnersOf(p.layers, stockOnly) }, () => {}, undefined, digests);
+  const earlier = [...h.earlier];
+  const seen = new Set([h.hash, h.withoutPlugins, ...earlier.flatMap((e) => [e.hash, ...(e.withoutPlugins ? [e.withoutPlugins] : [])])]);
+  const add = (e: EarlierHash) => {
+    const hashes = [e.hash, ...(e.withoutPlugins ? [e.withoutPlugins] : [])];
+    if (hashes.every((x) => seen.has(x))) return;
+    for (const x of hashes) seen.add(x);
+    earlier.push(e);
+  };
+  add({ rule: "without-stock-names", hash: v.hash, withoutPlugins: v.withoutPlugins });
+  for (const e of v.earlier) add({ ...e, withoutStockNames: true });
+  return { ...h, earlier };
+}
 
 /** The identity, in the order of its fields as `readMod` has always given them. */
 function identityOf(h: Hashed, known: UnhashedIdentity): Identity {
@@ -965,7 +1015,15 @@ export async function modIdentity(tree: ModFiles, d: UnhashedDescription, o: Pic
   const member = async (archive: string, name: string) => (await open.archive(archive, d.layers.find((l) => l.kind === "archive" && l.path === archive)?.at)).readFile(name) ?? new Uint8Array(0);
   const fromTree = (f: { path?: string; archive?: string; member?: string }) => (f.path !== undefined ? open.file(f.path) : member(f.archive!, f.member!));
   try {
-    const hashed = await hashPlan({
+    // (an archive without a list: the names it was found to hold only by 1.16.1's own tables' names, as `readMod` tells them)
+    const stockOnly = new Map<number, Set<string>>();
+    for (const [k, l] of d.layers.entries()) {
+      if (l.kind !== "archive" || !l.probed) continue;
+      const only = foundByStockNamesOnly(await open.archive(l.path, l.at), l.files.map((f) => f.member!));
+      if (only.size) stockOnly.set(k, only);
+    }
+    const digests = new Map<string, string | null>();
+    const toHash: HashPlan = {
       files: d.files, layers: d.layers,
       read: (f) => { const l = d.layers[f.layer]; return l.kind === "folder" ? open.file(f.path!) : member(l.path, f.member!); },
       // (a project that cannot be read rejects, as in `readMod`, with a ModReadError)
@@ -973,7 +1031,8 @@ export async function modIdentity(tree: ModFiles, d: UnhashedDescription, o: Pic
       plugins: d.identity.plugins,
       fileLines: d.modules.filter((m) => m.source.kind === "file" && isPluginFile(m.source.path)).map((m) => pluginLine(m.name, m.sha256)),
       system: (d.systemFiles ?? []).map((s) => ({ name: s.name, read: () => fromTree(s) })),
-    }, o.progress ?? (() => {}), o.onFile);
+    };
+    const hashed = await withoutStockNames(await hashPlan(toHash, o.progress ?? (() => {}), o.onFile, digests), toHash, stockOnly, digests);
     return identityOf(hashed, d.identity);
   } finally {
     if (!o.archives) open.close();

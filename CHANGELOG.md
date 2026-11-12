@@ -5,6 +5,32 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-11-12
+
+### Changed
+- Which files an archive without a list of its files is found to hold. The prober now looks
+  for the names the game reads by name, the names the archive's own image, sound and portrait
+  tables give, and the names 1.16.1's own three tables give, which the package carries (2,238
+  names, no byte of the game), for every caller. Before, the last were looked for only by a
+  caller that passed `ReadOptions.tables`, so such an archive could be found to hold fewer
+  files, and have another hash, for every other caller. `tables` is no longer consulted:
+  what is found depends on the mod's bytes alone. No mod in hand changes; an archive without a
+  list that holds a file only 1.16.1's tables name now has that file, and so another hash, for
+  a caller that passed no tables.
+
+### Added
+- `identity.earlier` rule `without-stock-names`: the hash and the hash without plugins of the
+  files such an archive was found to hold without 1.16.1's own tables' names, as a reader
+  that passed no tables gave them before 1.2.0. There only where those names found a file.
+  Each earlier rule's form over those fewer files is listed too, marked
+  `withoutStockNames: true`, where it is a hash the list does not already hold.
+- `scripts/stock-names.mjs`: the maintainer's tool that writes the list from an unmodified
+  1.16.1 (`src/stockNames.ts`, names only, with the tables' sizes and SHA-256 as provenance).
+
+### Deprecated
+- `ReadOptions.tables`, the `tables` argument of `namesToProbe` and `probeNames`, and the
+  type `TablesOf`: kept so that callers still compile, and not asked.
+
 ## [1.1.1] - 2026-11-12
 
 ### Fixed

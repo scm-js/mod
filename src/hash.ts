@@ -73,11 +73,22 @@ export const gameFileLine = (name: string, sha256: string): string => `${gameNam
  * - `game-files`: the game files alone, before a mod's code and its FireGraft project had lines (what `scmjs` called a
  *   mod's data set then), without an operating system's files (a folder read through a browser's folder picker);
  * - `game-files-older`: the same with an operating system's files' lines, as the rule was until 2026-11-09; there only
- *   where such files were seen.
+ *   where such files were seen;
+ * - `without-stock-names`: until 1.2.0, an archive without a list was looked into for the names the game reads and
+ *   those its own tables give, and only a reader that passed the person's own tables (`ReadOptions.tables`) looked for
+ *   the names 1.16.1's own tables give: the hash and the hash without plugins of the files found without those, as
+ *   every other reader gave them. There only where those names found a file the older look did not.
+ *
+ * Each earlier rule's form over those same fewer files is listed too, with its own rule and `withoutStockNames`, where
+ * it is a hash the list does not already hold: the readers that gave those forms passed no tables either.
  */
-export type EarlierRule = "before-code" | "before-unlisted-project" | "older" | "game-files" | "game-files-older";
-/** A hash an earlier rule gave these files: for matching a replay or a kept mod named then, never for naming a mod now. */
-export interface EarlierHash { rule: EarlierRule; hash: string; withoutPlugins?: string }
+export type EarlierRule = "before-code" | "before-unlisted-project" | "older" | "game-files" | "game-files-older" | "without-stock-names";
+/**
+ * A hash an earlier rule gave these files: for matching a replay or a kept mod named then, never for naming a mod now.
+ * `withoutStockNames`: the rule's form over the files an archive without a list was found to hold without the names
+ * 1.16.1's own tables give (as `without-stock-names`).
+ */
+export interface EarlierHash { rule: EarlierRule; hash: string; withoutPlugins?: string; withoutStockNames?: true }
 
 /**
  * Members changed, added or removed, by name: the new SHA-256 of each, or null for one removed (`identityWith`).

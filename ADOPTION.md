@@ -93,7 +93,8 @@ it now; "caller" means it stays where it is.
    person's own copy of the game's tables; core's did not; the runners looked for none. **Kept:
    one prober** (`probeNames(archive, tables?)`): the game's names and those the archive's own
    tables name, and the person's tables only where the caller passes them. Without them it is
-   core's list exactly.
+   core's list exactly. (Since 1.2.0 the prober looks for 1.16.1's own tables' names for every
+   caller, and `tables` is not asked: see "Known and kept".)
 7. **The startup data.** The engine's rule: one of `STARTUP_NAMES`, a picture or overlay under
    `unit\`, or an archive in which nothing could be found by name. The CLI said yes for any file
    under `unit\` and for a mod with no game files at all. **Kept: the engine's**, since it is the
@@ -164,10 +165,19 @@ it now; "caller" means it stays where it is.
   Cosmonarchy release in Node peaked at 2,162,592 KB resident and now peaks at 1,185,508 KB;
   after a full collection while the files are hashed, 1,084 MB stayed resident then and 164 MB
   now.
-- **`ReadOptions.tables`.** The play page passes the person's tables; the editor, the command
-  line and Aftermath pass none. An archive without a list can be found to hold more files with
-  them, and then has another hash. SC Revolution, the one such mod in hand, has the same hash
-  either way. To agree with the others, pass none.
+- **`ReadOptions.tables`** (settled in 1.2.0). The play page passed the person's tables, the
+  editor, the command line, Node's runner and Aftermath none, so an archive without a list
+  could be found to hold more files, and have another hash, on the play page. Since 1.2.0 the
+  package carries the names 1.16.1's own image, sound and portrait tables give (names only,
+  made from the unmodified game by `scripts/stock-names.mjs`) and every reader looks for them;
+  `tables` is deprecated and not asked. A caller does nothing: one that passes `tables` may
+  stop, and nothing else changes for it. What it costs: a person whose own game names more
+  files than 1.16.1's (a game or a data set that is itself modded) no longer has those looked
+  for; a mod's archive that replaces such a file without listing it or naming it in its own
+  tables is found to hold one file less on that person's page than it was. A reader that passed
+  no tables before 1.2.0 found fewer files in such an archive; that form is
+  `identity.earlier`'s `without-stock-names`. No mod in hand changes: SC Revolution, the one
+  without a list, names its files in its own tables.
 - **One file given by name** is named `ModFiles.name`: `diskFiles` takes `.exe`, `.mpq` or
   `.zip` off it, `filesOf` and a page's own adapter keep what they are given (`Made.exe`).
 - **`gameName` keeps a leading backslash** (11 above).
