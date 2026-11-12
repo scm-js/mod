@@ -14,7 +14,7 @@ export {
   isPluginFile, isCodeFile, patcherPluginWords, PRIORITY, modIdentity,
   type ModDescription, type ReadOptions, type Loader, type LoaderKind, type Layer, type LayerFile, type Module, type ModuleRole,
   type ModuleSource, type FiregraftFile, type FiregraftPatch, type CarriedFile, type Identity, type LeftReason,
-  type UnhashedDescription, type UnhashedIdentity, type SystemFile, type FileReaders, type OpenArchives,
+  type UnhashedDescription, type UnhashedIdentity, type SystemFile, type FileReaders, type OpenArchives, type UnhashedReadOptions, type HashChoiceReadOptions,
 } from "./mod.ts";
 export { filesOf, isSystemFile, inDotFolder, leafOf, folderOf, SYSTEM_FILES, type ModEntry, type ModFiles } from "./files.ts";
 export { descriptionLines, descriptionText } from "./words.ts";

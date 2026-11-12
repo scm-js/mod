@@ -183,8 +183,15 @@ export const MOD_MESSAGE_GROUPS: { readonly [G in ModMessageGroup]: readonly Mod
   return out as unknown as { readonly [G in ModMessageGroup]: readonly ModMessageKeyIn<G>[] };
 })();
 
-/** The parameters a message takes, by name. */
-export type ModMessageParams<K extends ModMessageKey> = { readonly [P in (typeof MOD_MESSAGES)[K]["params"][number]]: ModParam };
+/** The parameters of a message its English text does not show (`hidden`), by name. */
+type HiddenParam<K extends ModMessageKey> = (typeof MOD_MESSAGES)[K] extends { readonly hidden: readonly (infer H)[] } ? H & string : never;
+/**
+ * The parameters a message takes, by name: those its text shows, and those it carries unshown (`hidden`), which are
+ * optional, so a message made as 1.0.0 made it (`say("archive-unopenable", { path, why })`) is still one of the list.
+ */
+export type ModMessageParams<K extends ModMessageKey> =
+  & { readonly [P in Exclude<(typeof MOD_MESSAGES)[K]["params"][number], HiddenParam<K>>]: ModParam }
+  & { readonly [P in HiddenParam<K>]?: ModParam };
 
 /** One sentence: its key in `MOD_MESSAGES`, its parameters, its English template and the English text made of them. */
 export interface ModMessageOf<K extends ModMessageKey> {

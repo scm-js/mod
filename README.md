@@ -193,7 +193,11 @@ hashes are not worked out again.
 ### Naming a mod later
 
 `readMod(tree, { hashFiles: false })` describes a mod without reading its files for the hash,
-so a large mod can be shown at once. Its `identity` then holds only `plugins`, `code`,
+so a large mod can be shown at once. Those options are `UnhashedReadOptions`, and the result an
+`UnhashedDescription`. A `ReadOptions` value never turns hashing off, so code that passes its
+`ReadOptions` on gets a `ModDescription`, as it did with 1.0.0. A caller that decides at run
+time passes `HashChoiceReadOptions` (`hashFiles` a boolean) and gets either description,
+telling them apart by `"hash" in d.identity`. Its `identity` then holds only `plugins`, `code`,
 `readsStartupData` and `declared`. `modIdentity(tree, description)` works out the rest later
 from the same files, and gives what a plain `readMod` gives. Two things are still read and
 hashed when hashing is off: each module (its role and interface are told from its bytes, and a
