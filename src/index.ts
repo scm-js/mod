@@ -11,21 +11,26 @@
 // The reader and its description.
 export {
   readMod, plugInOrder, planPlugins, readPath, fileReaders, moduleBytes, openLayer, firegraftBytes, firegraftFilesOf,
-  isPluginFile, isCodeFile, patcherPluginWords, PRIORITY,
+  isPluginFile, isCodeFile, patcherPluginWords, PRIORITY, modIdentity,
   type ModDescription, type ReadOptions, type Loader, type LoaderKind, type Layer, type LayerFile, type Module, type ModuleRole,
   type ModuleSource, type FiregraftFile, type FiregraftPatch, type CarriedFile, type Identity, type LeftReason,
+  type UnhashedDescription, type UnhashedIdentity, type SystemFile, type FileReaders, type OpenArchives,
 } from "./mod.ts";
 export { filesOf, isSystemFile, inDotFolder, leafOf, folderOf, SYSTEM_FILES, type ModEntry, type ModFiles } from "./files.ts";
 export { descriptionLines, descriptionText } from "./words.ts";
 
 // Words: every sentence the reader can produce, by key.
 export {
-  MOD_MESSAGES, say, renderMessage, formatMessage, templateParams, ModError, ModReadError,
+  MOD_MESSAGES, MOD_MESSAGE_GROUPS, say, renderMessage, formatMessage, templateParams, ModError, ModReadError,
   type ModMessage, type ModMessageOf, type ModMessageKey, type ModMessageParams, type ModParam, type Translate,
+  type ModMessageGroup, type ModMessageKeyIn, type ModMessageInGroup,
 } from "./messages.ts";
 
 // The identity: the mod's hash and its rules.
-export { sha256Hex, hashLines, hashLinesAsWere, isSystemLine, pluginLine, firegraftLine, hasCodeLine, runningHash, type OlderHashes } from "./hash.ts";
+export {
+  sha256Hex, hashLines, hashLinesAsWere, isSystemLine, pluginLine, firegraftLine, gameFileLine, hasCodeLine, runningHash, identityWith,
+  type OlderHashes, type EarlierHash, type EarlierRule, type IdentityChanges,
+} from "./hash.ts";
 
 // The containers, each readable alone: Windows images, self-executing exes, zips, archives without a list.
 export { programEnd, libraryName, exportsOf, importsOf, holdsString, type PeExports } from "./pe.ts";

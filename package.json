@@ -1,6 +1,6 @@
 {
   "name": "@scm-js/mod",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Read a StarCraft: Brood War mod (a folder, an .mpq, MPQDraft's or FireGraft's self-executing exe, a zip, plugins) into one description: its layers, its code in the loader's order, its FireGraft project, and its hash. Nothing is run.",
   "keywords": ["starcraft", "brood war", "mod", "mpq", "mpqdraft", "firegraft", "sempq", "gptp", "plugin", "qdp"],
   "homepage": "https://github.com/scm-js/mod#readme",

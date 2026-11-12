@@ -198,7 +198,7 @@ describe("an operating system's file packed in the mod's archive", () => {
     const d = await readMod(filesOf("Mod", { "Mod/mod.mpq": mpq.write() }));
     expect(d.files.map((f) => f.name)).toEqual(["arr\\units.dat"]);
     expect(d.left).toEqual([]);
-    expect(d.identity.older).toEqual({ hash: ruleAsWas({ "arr\\units.dat": "units", "glue\\battle.net\\backgrounds\\thumbs.db": "thumbnails" }), files: ["glue\\battle.net\\backgrounds\\thumbs.db"] });
+    expect(d.identity.older).toEqual({ hash: ruleAsWas({ "arr\\units.dat": "units", "glue\\battle.net\\backgrounds\\thumbs.db": "thumbnails" }), files: ["glue\\battle.net\\backgrounds\\thumbs.db"], lines: [`glue\\battle.net\\backgrounds\\thumbs.db\t${sha("thumbnails")}`] });
   });
 });
 
@@ -242,7 +242,7 @@ describe("an operating system's files are not a mod's", () => {
       expect(seen.identity.lines, path).toEqual(plain.identity.lines);
       expect(seen.files.map((f) => f.name), path).toEqual(plain.files.map((f) => f.name));
       expect(seen.left, path).toEqual([{ path: `a mod/${path}`, why: "system" }]);
-      expect(seen.identity.older, path).toEqual({ hash: ruleAsWas(gameNames({ ...MOD, [path]: data })), files: [path.replace(/\//g, "\\").toLowerCase()] });
+      expect(seen.identity.older, path).toEqual({ hash: ruleAsWas(gameNames({ ...MOD, [path]: data })), files: [path.replace(/\//g, "\\").toLowerCase()], lines: [`${path.replace(/\//g, "\\").toLowerCase()}\t${sha(data)}`] });
     }
     for (const path of NOT_SYSTEM) {
       const other = await readMod(folderOf({ ...MOD, [path]: "x" }));
@@ -269,7 +269,8 @@ describe("an operating system's files are not a mod's", () => {
     // the older form: the lines of the files where a game file would be (the loose one over the archive's, as the game
     // layers them; the zip's folder was a folder like any other then), with the plugins and without
     const were = { ...gameNames(MOD), "rez\\stat_txt.tbl": "made strings", "y.fgp": "a project", "sound\\desktop.ini": "[loose]", "sound\\cm\\thumbs.db": "t", "__macosx\\arr\\._units.dat": "fork" };
-    expect(packed.identity.older).toEqual({ hash: ruleAsWas({ ...were, "plugins\\x.qdp": "a plugin's bytes" }), withoutPlugins: ruleAsWas(were), files: ["__macosx\\arr\\._units.dat", "sound\\cm\\thumbs.db", "sound\\desktop.ini"] });
+    const system = ["__macosx\\arr\\._units.dat", "sound\\cm\\thumbs.db", "sound\\desktop.ini"];
+    expect(packed.identity.older).toEqual({ hash: ruleAsWas({ ...were, "plugins\\x.qdp": "a plugin's bytes" }), withoutPlugins: ruleAsWas(were), files: system, lines: system.map((n) => `${n}\t${sha(were[n as keyof typeof were])}`) });
     // (the archive's own: named, though no path of the tree is it)
     expect(packed.left.map((l) => l.path)).not.toContain("sound\\cm\\thumbs.db");
     expect(clean.identity.older).toBeUndefined();

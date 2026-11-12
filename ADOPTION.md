@@ -41,8 +41,8 @@ it now; "caller" means it stays where it is.
 | What was left out | `ModSource.left` | added: `d.left`, each with its reason (`dot-folder`, `system`, `game-copy`, `too-deep`, `program`, `library`, `same-name`, `outside`, `beside`) | `left` held paths only; the CLI's sentence ("Not the game's, left out: …") stays in the CLI. |
 | A copy of the game in what was given | `ModSource.gameCopy`, `gameCopyFolders`, `gameCopyWords` | gives: `d.gameCopy`, `gameCopyFolders`, and the `game-copy` message (`folder`, `list`, `more`) in `d.said` | `gameCopyWords` is the message; translate it by key. "A copy of the game and nothing else" is the `copy-only` message, not an error. |
 | Archives read without a list, and names listed but not held | `ModSource.probed`, `ModSource.unheld` | another name: `layer.probed`; `d.unreadable` (names an archive lists and does not hold, and names that could not be read) | |
-| The hash, without plugins, older | `hash.ts` (`modHashOfDigests`, `ModHash`); `cli/src/mod/hash.ts#sourceHash`; installer `dataSetHashOf` | gives: `d.identity` (`hash`, `withoutPlugins`, `lines`, `plugins`, `older`, `beforeCode`, `declared`) | By the rule of 2026-11-11 (below). `older.left` (the system files' names) is `d.identity.older.files`: the game names of the files whose lines the older hash had, loose ones and members of the mod's archives alike (Burning Ground's exe: `glue\battle.net\backgrounds\thumbs.db`). `d.left` lists paths of the tree only, so an archive's member is never in it. |
-| The hash of game files alone; the hash of the files that differ from the person's game | `sourceHash#gameFilesOnly`; `replaymod.ts#sourceHashes` (`changed`) | caller | Both are older names a replay may carry, made from lines the description has: `hashLines(d.identity.lines.filter(l => !/\.fgp\t/.test(l)))`, and `ReadOptions.onFile` hands each file's bytes to compare with a copy of the game. Matching a replay's tag is the CLI's. |
+| The hash, without plugins, older | `hash.ts` (`modHashOfDigests`, `ModHash`); `cli/src/mod/hash.ts#sourceHash`; installer `dataSetHashOf` | gives: `d.identity` (`hash`, `withoutPlugins`, `lines`, `plugins`, `older`, `beforeCode`, `declared`; since 1.1.0 `earlier` and `older.lines`) | By the rule of 2026-11-11 (below). `older.left` (the system files' names) is `d.identity.older.files`: the game names of the files whose lines the older hash had, loose ones and members of the mod's archives alike (Burning Ground's exe: `glue\battle.net\backgrounds\thumbs.db`). `d.left` lists paths of the tree only, so an archive's member is never in it. |
+| The hash of game files alone; the hash of the files that differ from the person's game | `sourceHash#gameFilesOnly`; `replaymod.ts#sourceHashes` (`changed`) | added (1.1.0): the game files alone are `d.identity.earlier` (`game-files`, and `game-files-older` with an operating system's files); caller: the files that differ | The second needs the person's game: made from `d.identity.lines` (and `d.identity.older.lines` for its older form), with `ReadOptions.onFile` handing each file's bytes to compare with a copy of the game. Matching a replay's tag is the CLI's. |
 | `mod.json` beside a mod | `source.ts` (`name`, `races`), `header.ts#linkOf`, `overlay.ts` (`link`, `url`), installer `pickedFolderRaces` | added: `readModJson`, `isModJsonPath`, `d.manifest` (`path`, `base`, `format`), with `d.name`, `d.link`, `d.races`, `d.identity.declared` | One rule for which file and what of it (below). |
 | The mod folder's manifest (the text form `mod unpack` writes) | `folder.ts` (`ModManifest`, `readManifest`, `tidyManifest`, `MOD_FORMAT`) | caller | It is the pack and unpack format, not a fact about a mod's files. The package recognises one (`format`, and the `text-folder` message) so a reader knows to pack it first. |
 | Pack and unpack | `pack.ts`, `unpack.ts`, `folder.ts` (`renderMember`, `packFile`, …) | caller | Verbs, and they need the editor's codecs for tables, strings, scripts, pictures. |
@@ -150,6 +150,84 @@ it now; "caller" means it stays where it is.
   without.
 - A plugin loader's own packing of its folder (an archive the loader names in its bytes) is told
   by that, not by its name; without the folder it is laid where the loader opens it.
+- **A plugin loader's packing laid by its folder is read whole** (Cosmonarchy's `temp.mpq`,
+  977 MB). Whether its layer is dropped is decided from what is known without its contents (the
+  loader's bytes name it, it replaces none of the game's archives, the folder has files), so
+  the decision could be made before it is read. Leaving it unread could still move a hash:
+  everything else an archive gives is read from its contents, and so from this one too. That
+  means a FireGraft project in it whose file name the folder has not (its line, and the
+  database picked), an operating system's file in it that the folder has not (`older`), a
+  plugin inside it (`named`, `carried`), names it lists and does not hold (`unreadable`), and
+  the error a damaged one raises. A packing made before the folder last changed can hold any
+  of these. Since 1.1.0 the reader lets go of it before it hashes the files, having read what
+  the hash takes from it, and `diskFiles` no longer copies a file it reads. Reading the
+  Cosmonarchy release in Node peaked at 2,162,592 KB resident and now peaks at 1,185,508 KB;
+  after a full collection while the files are hashed, 1,084 MB stayed resident then and 164 MB
+  now.
+- **`ReadOptions.tables`.** The play page passes the person's tables; the editor, the command
+  line and Aftermath pass none. An archive without a list can be found to hold more files with
+  them, and then has another hash. SC Revolution, the one such mod in hand, has the same hash
+  either way. To agree with the others, pass none.
+- **One file given by name** is named `ModFiles.name`: `diskFiles` takes `.exe`, `.mpq` or
+  `.zip` off it, `filesOf` and a page's own adapter keep what they are given (`Made.exe`).
+- **`gameName` keeps a leading backslash** (11 above).
+- **`layout: "game"`** tells a module's role and order from its path alone (the README says
+  how): a plugin a patcher carried, handed over as `plugins/qdp.dll`, is a library there, and
+  the patcher's own order of its plugins is not kept.
+- **The reason an archive could not be opened.** The archive library's errors carry a stable
+  kind (`MpqError.kind`), so since 1.1.0 `archive-unopenable` and `exe-archive-unopenable`
+  carry a new parameter, `reason`: a message keyed by that kind (`mpq-damaged`, …) with the
+  library's English text as `detail`. `why` stays that text, as in 1.0.0, and the English
+  sentence shows it and reads word for word as before. A caller that translates renders
+  `reason` where it is present and falls back to `why`.
+- **`readMod` rejects only with a `ModReadError`** since 1.1.0. 1.0.0 also let through the
+  archive library's `TypeError` for an archive whose hash table has no entries (now
+  `archive-unopenable`), a zip member (a plugin, a project, `mod.json`) that could not be
+  inflated (now `zip-unreadable`, with the new reason `zip-member-inflate`), the library's
+  error for a project its archive could not give (now `firegraft-unreadable`), and an error of
+  the tree's own `read` (now the new `file-unreadable`). The error underneath is the `cause`.
+
+## What the last two adopters found (1.1.0)
+
+Aftermath (a replay matched to a picked folder) and the Mod Editor (a mod edited and named
+as it is edited) adopted 1.0.0 after the editor, the command line and scm-sim. What they
+lacked, and the code of theirs, and of the first adopters, that each addition replaces:
+
+| What | Replaces | In the package |
+| --- | --- | --- |
+| Every earlier hash, for matching | Aftermath `modreplay.ts`: `systemLines`, and in `folderHashes` the `older` list (`beforeCode`, the form without the unlisted project's line, `older`, the game files with the system lines) and `all`; the CLI's `cli/src/mod/hash.ts`: `systemLines`, `gameFilesOnly`, `gameFilesOnlyWere` | `d.identity.earlier` (`{ rule, hash, withoutPlugins? }`), `d.identity.older.lines`. The form of the files that differ from the person's game (`changed`, and its older form) stays with the caller, made from `lines` and `older.lines`. scm-sim's page can keep `earlier` in its manifest beside `older` and `beforeCode` and match it in `isMod`. |
+| The hash after an edit | the Mod Editor's `session.ts#hash` (a game file's line written by hand, then `runningHash` over every plugin) | `identityWith(identity, { files, plugins })`, `gameFileLine` |
+| Showing a large mod at once, naming it later | | `ReadOptions.hashFiles: false`, `modIdentity` |
+| Reading the files again | the Mod Editor's `source.ts` (its comment: each plugin inside an archive opens the archive again, beside the files' reader's own copy), Aftermath's `modFolder` | `fileReaders` lists the tree once (Cosmonarchy's release: 7,761 listings and 3.2 s before, none and 0.3 s now) and keeps archives until `close()`; `ReadOptions.archives` shares the archives `readMod` opened with `fileReaders`, `modIdentity`, `openLayer`, `firegraftBytes` |
+| Which message keys can be shown where | Aftermath's `MOD_WORDS` (hand-listed: it lacks `game-copy`, which progress also hears) | `MOD_MESSAGE_GROUPS` (`error`, `reason`, `progress`, `said`, …), `ModMessageKeyIn<G>` |
+| A member an archive's list names twice | | listed once in `Layer.files`, by its last spelling, the one `files` takes: nothing else of the description changes |
+
+`earlier` does not hold the forms of readers before 1.0.0 that laid a read-me beside a patcher
+exe as a game file (13 above: Burning Ground's folder 14fbf76b99ba5015). No caller works them
+out, and they need files the reader does not hash.
+
+## Open
+
+Not in 1.1.0, and what each would take:
+
+- **Ranged reads.** `ModFiles.read` and the archive library read a file whole, so an archive is
+  in memory whole while it is read (a plugin loader's packing of 977 MB, above). It would take
+  an optional `ModFiles.readRange(path, from, to)` (a browser's `Blob.slice`, a disk's
+  positioned read) and an archive opened from its header, its tables and its members' sectors
+  read when asked, which `mopaq` does not do today. With both, a packing laid by its folder
+  could be described from its tables alone, and the packing question above settled without
+  reading its contents.
+- **Role and order for `layout: "game"`.** Files handed over in the game's paths say nothing
+  of how they were carried, so the role and the order come from the path alone. It would take
+  the handing side to say it: a manifest beside the files (for each module its role, its
+  carrier, its place in its loader's order) that the reader takes over the path's rule, and a
+  rule for when the two disagree.
+- **Files a mod's code reads from its folder at run time** (settings such as a `.yml` beside
+  the game, a plugin's `.ini`) are no game files, and have no line unless they sit under a
+  folder the game's paths are read from. Making them part of the identity would take knowing
+  which files a plugin opens, which the reader cannot tell without running the plugin (a list
+  in `mod.json`, or one learned from a run), and a new rule. That would move hashes, so it
+  would come with an earlier rule's entry in `earlier`.
 
 ## Order of work
 

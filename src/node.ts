@@ -6,7 +6,7 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { readMod, type ModDescription, type ReadOptions } from "./mod.ts";
+import { readMod, type ModDescription, type ReadOptions, type UnhashedDescription } from "./mod.ts";
 import type { ModEntry, ModFiles } from "./files.ts";
 import { ModReadError, say } from "./messages.ts";
 
@@ -54,14 +54,24 @@ export function diskFiles(path: string): DiskFiles {
     name,
     ...(isDir ? {} : { named: top }),
     list: async () => entries,
-    read: async (p) => new Uint8Array(readFileSync(diskPath(p))),
-    readSync: (p) => new Uint8Array(readFileSync(diskPath(p))),
+    read: async (p) => bytesOf(readFileSync(diskPath(p))),
+    readSync: (p) => bytesOf(readFileSync(diskPath(p))),
     diskPath, root: full,
   };
 }
 
+/**
+ * A file's bytes as a plain `Uint8Array` that owns its whole buffer, as `read` has always given them: the bytes Node
+ * read when they are a buffer of their own (every file but a small one), so a large archive is not held twice while it
+ * is copied; a copy of a small file, which Node reads into a buffer shared with others.
+ */
+const bytesOf = (b: Buffer): Uint8Array => (b.byteOffset === 0 && b.byteLength === b.buffer.byteLength ? new Uint8Array(b.buffer, 0, b.byteLength) : new Uint8Array(b));
+
 /** The mod at `path` read (`readMod`), with the tree it was read from. */
-export async function readModAt(path: string, o: ReadOptions = {}): Promise<{ description: ModDescription; files: DiskFiles }> {
+export function readModAt(path: string, o: ReadOptions & { hashFiles: false }): Promise<{ description: UnhashedDescription; files: DiskFiles }>;
+export function readModAt(path: string, o?: ReadOptions & { hashFiles?: true }): Promise<{ description: ModDescription; files: DiskFiles }>;
+export function readModAt(path: string, o?: ReadOptions): Promise<{ description: ModDescription | UnhashedDescription; files: DiskFiles }>;
+export async function readModAt(path: string, o: ReadOptions = {}): Promise<{ description: ModDescription | UnhashedDescription; files: DiskFiles }> {
   const files = diskFiles(path);
   return { description: await readMod(files, o), files };
 }

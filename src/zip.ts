@@ -52,7 +52,10 @@ export function readZip(b: Uint8Array): ZipMember[] {
         const data = b.subarray(from, from + packed);
         if (method === 0) return data;
         const stream = new Blob([data as Uint8Array<ArrayBuffer>]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
-        const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+        let bytes: Uint8Array;
+        // (bytes that are no deflate stream: the platform's inflater says so in its own words, kept as `detail`)
+        try { bytes = new Uint8Array(await new Response(stream).arrayBuffer()); }
+        catch (e) { throw new ZipError(say("zip-member-inflate", { path, detail: e instanceof Error ? e.message || e.name : String(e) }), { cause: e }); }
         if (bytes.length !== size) throw new ZipError(say("zip-member-size", { path, got: bytes.length, size }));
         return bytes;
       },
