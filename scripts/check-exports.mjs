@@ -3,6 +3,7 @@
 // (`npm run check:exports`). `--write <version> <dist>` makes such a list from a published package's `dist`.
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const ENTRIES = { ".": "index", "./node": "node" };
 
@@ -28,25 +29,29 @@ const exportsOf = (dist) => Object.fromEntries(Object.entries(ENTRIES).map(([ent
 }]));
 
 const here = new URL("..", import.meta.url).pathname;
-if (process.argv[2] === "--write") {
-  const [, , , version, dist] = process.argv;
-  const found = exportsOf(dist);
-  const list = Object.fromEntries(Object.entries(found).map(([entry, { mts, cts }]) => {
-    if (mts.join() !== cts.join()) throw new Error(`${entry}: its ESM and CommonJS declarations export different names`);
-    return [entry, mts];
-  }));
-  writeFileSync(join(here, "tests/compat", `exports-${version}.json`), `${JSON.stringify(list, null, 2)}\n`);
-  console.log(`exports-${version}.json: ${Object.entries(list).map(([e, n]) => `${e} ${n.length}`).join(", ")}`);
-} else {
-  const now = exportsOf(join(here, "dist"));
-  let missing = 0;
-  for (const file of readdirSync(join(here, "tests/compat")).filter((f) => /^exports-.+\.json$/.test(f)).sort()) {
-    const was = JSON.parse(readFileSync(join(here, "tests/compat", file), "utf8"));
-    const before = missing;
-    for (const [entry, names] of Object.entries(was)) for (const form of ["mts", "cts"]) {
-      for (const name of names) if (!now[entry]?.[form].includes(name)) { missing++; console.error(`${file}: ${entry} (.d.${form}) no longer exports ${name}`); }
+// (only when run as a script: a test imports `exportedNames` before anything is built)
+function main() {
+  if (process.argv[2] === "--write") {
+    const [, , , version, dist] = process.argv;
+    const found = exportsOf(dist);
+    const list = Object.fromEntries(Object.entries(found).map(([entry, { mts, cts }]) => {
+      if (mts.join() !== cts.join()) throw new Error(`${entry}: its ESM and CommonJS declarations export different names`);
+      return [entry, mts];
+    }));
+    writeFileSync(join(here, "tests/compat", `exports-${version}.json`), `${JSON.stringify(list, null, 2)}\n`);
+    console.log(`exports-${version}.json: ${Object.entries(list).map(([e, n]) => `${e} ${n.length}`).join(", ")}`);
+  } else {
+    const now = exportsOf(join(here, "dist"));
+    let missing = 0;
+    for (const file of readdirSync(join(here, "tests/compat")).filter((f) => /^exports-.+\.json$/.test(f)).sort()) {
+      const was = JSON.parse(readFileSync(join(here, "tests/compat", file), "utf8"));
+      const before = missing;
+      for (const [entry, names] of Object.entries(was)) for (const form of ["mts", "cts"]) {
+        for (const name of names) if (!now[entry]?.[form].includes(name)) { missing++; console.error(`${file}: ${entry} (.d.${form}) no longer exports ${name}`); }
+      }
+      if (missing === before) console.log(`${file}: every name still exported (${Object.entries(was).map(([e, n]) => `${e} ${n.length}`).join(", ")}; now ${Object.entries(now).map(([e, n]) => `${e} ${n.mts.length}`).join(", ")})`);
     }
-    if (missing === before) console.log(`${file}: every name still exported (${Object.entries(was).map(([e, n]) => `${e} ${n.length}`).join(", ")}; now ${Object.entries(now).map(([e, n]) => `${e} ${n.mts.length}`).join(", ")})`);
+    if (missing) process.exit(1);
   }
-  if (missing) process.exit(1);
 }
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
