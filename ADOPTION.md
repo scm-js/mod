@@ -181,7 +181,9 @@ scm-sim's `src/mods/read/` is where this package came from; scm-sim deletes it a
   compared one of these sentences compares the key now.
 - **`named.plugins`** is plugin file names only. A patcher exe's own plugins, which were joined
   into it as `"<exe> (FireGraft patcher plugin <name>, id <hex>)"`, are
-  `named.patcherPlugins` (`{ exe, form, name, id }`); the page builds its line from them.
+  `named.patcherPlugins` (`{ exe, form, name, id }`). `patcherPluginWords(entry)` gives each as
+  the message `patcher-plugin` (the exe's file name as given, where the page lower-cased it), so
+  the page's own `patcherPluginWords` goes.
 - **New in the description**: `game`, `manifest`, `left`, `duplicates` (and a `duplicate`
   message in `said`, and `text-folder` for a folder in the text form `scmjs mod unpack` writes).
 - **`mod.json`**: only the one in the folder given or one folder down (never in a game folder)
@@ -203,6 +205,6 @@ scm-sim's `src/mods/read/` is where this package came from; scm-sim deletes it a
   eea56b519dca4872 is its `beforeCode`). `beforeCode` is now computed without that line too, and
   so is `older`. `FiregraftFile.byList` stays, saying how the project was found.
 - **Removed**: `sharedFolder` (the root rule above no longer needs it), the type alias
-  `PatcherPlugin` (use `CarriedModule`). Not exported from the package's entry, though still in
-  its files: `leafOf`, `folderOf`.
+  `PatcherPlugin` (use `CarriedModule`). `leafOf` and `folderOf` are exported, so a copy of
+  either goes.
 - **Node 20** at least.

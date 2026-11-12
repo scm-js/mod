@@ -82,6 +82,9 @@ export const MOD_MESSAGES = {
   "loader-plugin-loader": { text: "a plugin that loads plugins: its folder's plugins by name (not those starting with _), its folder of files laid at {priority}", params: ["priority"] },
   "loader-folder": { text: "files in the game's paths and plugins beside them, which no loader on Windows takes: the mod needs its files laid over the game's and its plugins loaded by name", params: [] },
 
+  /* ── A plugin a patcher exe carries, named for a person (`patcherPluginWords`) ── */
+  "patcher-plugin": { text: "{exe} ({form, select, mpqdraft-sempq {MPQDraft SEMPQ} other {FireGraft patcher}} plugin {named, select, yes {{name}, } other {}}id {id})", params: ["exe", "form", "named", "name", "id"] },
+
   /* ── How a loader enters a module (`ENTRY_WORDS`) ──────────── */
   "entry-mpqdraft": { text: "MPQDraft's interface (GetMPQDraftPlugin, InitializePlugin)", params: [] },
   "entry-bwl": { text: "Chaoslauncher's (GetPluginAPI, ApplyPatchSuspended)", params: [] },

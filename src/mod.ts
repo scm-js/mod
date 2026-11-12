@@ -238,6 +238,14 @@ interface OpenArchive { path: string; archive: Archive; at: number; form: ExeFor
 const PLUGIN_FILE = /\.(qdp|bwl)$/i;
 const CODE_MEMBER = /\.(qdp|bwl|fgp|fgd)$/i;
 
+/**
+ * One of `named.patcherPlugins` for a person: the exe's file name, the form, the name the plugin gives itself where it
+ * gives one, its id in hex (`Made.exe (FireGraft patcher plugin GPTP.qdp, id 1b4d69b6)`).
+ */
+export function patcherPluginWords(p: ModDescription["named"]["patcherPlugins"][number]): ModMessageOf<"patcher-plugin"> {
+  return say("patcher-plugin", { exe: leafOf(p.exe), form: p.form, named: p.name ? "yes" : "no", name: p.name ?? "", id: p.id.toString(16) });
+}
+
 /** Whether a file name is a plugin's: MPQDraft's `.qdp`, Chaoslauncher's `.bwl`. */
 export const isPluginFile = (name: string): boolean => PLUGIN_FILE.test(name);
 /** Whether a file name is of a mod's code rather than the game's: a plugin, FireGraft's project (`.fgp`) or database (`.fgd`). */

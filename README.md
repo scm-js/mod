@@ -162,6 +162,8 @@ The main surface is `readMod`, the description and its identity. The rest is the
   from its bytes, and the interface a loader would enter it by.
 - `readZip`, `zipFiles`: a zip's members.
 - `probeNames`: the names to look for in an archive with no list of its files.
+- `leafOf`, `folderOf`: the last part of a path (either slash) and the folder it is in
+  (forward slashes), as the reader takes them apart.
 - `kindOf`, `tableShape`, `gameOf`: a file's kind, a table's layout (the game's own,
   DatExtend's expanded, GPTP's `.datex`) and its entries, the game a mod is for.
 - `readModJson`, `isModJsonPath`: which `mod.json` is the mod's, and what of it is read.
@@ -178,6 +180,8 @@ The main surface is `readMod`, the description and its identity. The rest is the
   `layout: "game"`).
 - `namesToProbe`: the names `probeNames` looks for, before asking an archive.
 - `ENTRY_WORDS`: the interface a module is entered by, as a message.
+- `patcherPluginWords`: one of `named.patcherPlugins` as a message, for a short list of the
+  plugins a mod carries.
 - `holdsString`: whether a module holds a name as a string of its own (how a plugin that
   loads plugins, and the archive it packs, are told).
 
