@@ -169,10 +169,14 @@ against them, never present them.
   before 2026-11-11, with the form without plugins), `before-unlisted-project` (every module
   had a line, a FireGraft project found only through FireGraft's list had none; only where
   there is such a project), `older` (with an operating system's files), `game-files` (the game
-  files alone, before code and projects had lines) and `game-files-older` (the same with an
-  operating system's files). A caller that recognises a replay tagged by an earlier rule
-  compares the tag with `hash`, `withoutPlugins` and every hash of `earlier`, and works out
-  nothing itself. One may equal the current hash.
+  files alone, before code and projects had lines), `game-files-older` (the same with an
+  operating system's files) and `without-stock-names` (an archive without a list read
+  without the names 1.16.1's own tables give, as every reader but the play page read it
+  before 1.2.0; only where those names find a file). Each earlier rule's form over those
+  fewer files is there too, marked `withoutStockNames`, where it is a hash not already listed.
+  A caller that recognises a replay tagged by an earlier rule compares the tag with `hash`,
+  `withoutPlugins` and every hash of `earlier`, and works out nothing itself. One may equal
+  the current hash.
 - **`older.lines`** are the lines of the operating system's files the older rule counted, for
   a caller that makes a form of its own by that rule (a hash of the files that differ from the
   person's game, with those lines).
@@ -207,12 +211,20 @@ and does not hold, since a file whose bytes cannot be read is found only when it
 `modIdentity` leaves such a file out of the lines, as `readMod` does, but does not add it to
 the description.
 
-### Which copy of the game, if any
+### An archive without a list of its files
 
-`ReadOptions.tables` gives the prober the person's own copy of the game's tables, which name
-more files to look for in an archive without a list. Such an archive can then be found to hold
-more files, and so have another hash, than it has for a caller that passes none. To name a mod
-as the editor, the command line and Aftermath do, pass no `tables`.
+Storm finds a member by its name's hash, so an archive with no list can only be asked for
+names the reader already has. The reader looks for the names the game reads by name, the names
+the archive's own image, sound and portrait tables give, and the names 1.16.1's own three
+tables give. The package carries those last ones as names only (2,238 of them, made from the
+unmodified game's tables by a script in its repository), so every reader finds the same files
+in the same archive, whoever reads it and whatever game they have. A caller needs to do
+nothing for this.
+
+`ReadOptions.tables` is deprecated and no longer asked: until 1.1, a caller could pass the
+person's own copy of the game's tables, and then found more files in such an archive than a
+caller that passed none. The form a reader that passed none gave is in `identity.earlier`
+(`without-stock-names`), for matching only.
 
 ## Words
 
@@ -265,7 +277,8 @@ The main surface is `readMod`, the description and its identity. The rest is the
 - `programEnd`, `libraryName`, `exportsOf`, `importsOf`, `moduleFacts`: a Windows image read
   from its bytes, and the interface a loader would enter it by.
 - `readZip`, `zipFiles`: a zip's members.
-- `probeNames`: the names to look for in an archive with no list of its files.
+- `probeNames`: the names an archive with no list of its files is found to hold, from the
+  names the game reads, the archive's own tables and 1.16.1's own tables.
 - `gameName`: a path as the game names it (lower case, backslashes). A leading backslash is
   kept: storm finds a member by its name as stored, so `\arr\units.dat` and `arr\units.dat`
   are two members.
