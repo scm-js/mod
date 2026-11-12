@@ -3,7 +3,8 @@
  * people, two pages or a replay and the mod it was played with can tell whether they hold the same mod. SHA-256 by the
  * platform's Web Crypto (`crypto.subtle`, in every browser and in Node).
  */
-import { isSystemFile } from "./files.ts";
+import { isSystemFile, leafOf } from "./files.ts";
+import { gameName } from "./gameNames.ts";
 
 /** One file's SHA-256, lower-case hex. */
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {
@@ -50,7 +51,67 @@ export const pluginLine = (name: string, sha256: string): string => `plugins\\${
  * MPQDraft's own patcher DLL (role "patcher": whoever runs the mod is the loader), not a network provider (never loaded).
  */
 export const hasCodeLine = (m: { role: string; sameAs?: string }): boolean => !m.sameAs && (m.role === "plugin" || m.role === "plugin-loader" || m.role === "library");
+/** The FireGraft project's line: its file name (`Made.fgp`, no folder), lower case. A database (`.fgd`) has none. */
 export const firegraftLine = (name: string, sha256: string): string => `${name.toLowerCase()}\t${sha256}`;
+/**
+ * A game file's line: `<game name>\t<SHA-256>`, the name as `gameName` makes it (lower case, backslashes, a leading
+ * backslash kept), so a path (`arr/units.dat`) or a game name may be given. An operating system's file had a line of
+ * this shape until 2026-11-09 (`Identity.older.lines`).
+ */
+export const gameFileLine = (name: string, sha256: string): string => `${gameName(name)}\t${sha256}`;
+
+/**
+ * An earlier rule's key in `Identity.earlier`, each the rule of this reader or of the readers before it that named
+ * these same files otherwise:
+ * - `before-code`: until 2026-11-11, only the plugins given as files had lines, and a FireGraft project found only
+ *   through FireGraft's own list had none (`hash`: all of that code, `withoutPlugins`: none of it);
+ * - `before-unlisted-project`: from 2026-11-11 until 1.0.0 (scm-sim's reader), every module of the code had its line,
+ *   but a FireGraft project found only through FireGraft's own list in an archive without a list still had none;
+ *   there only where the mod has such a project;
+ * - `older`: until 2026-11-09, an operating system's files had lines too (`Identity.older`); there only where such
+ *   files were seen;
+ * - `game-files`: the game files alone, before a mod's code and its FireGraft project had lines (what `scmjs` called a
+ *   mod's data set then), without an operating system's files (a folder read through a browser's folder picker);
+ * - `game-files-older`: the same with an operating system's files' lines, as the rule was until 2026-11-09; there only
+ *   where such files were seen.
+ */
+export type EarlierRule = "before-code" | "before-unlisted-project" | "older" | "game-files" | "game-files-older";
+/** A hash an earlier rule gave these files: for matching a replay or a kept mod named then, never for naming a mod now. */
+export interface EarlierHash { rule: EarlierRule; hash: string; withoutPlugins?: string }
+
+/**
+ * Members changed, added or removed, by name: the new SHA-256 of each, or null for one removed (`identityWith`).
+ * `files`: game files by game name or path, and FireGraft projects by file name (`.fgp`; a database has no line);
+ * `plugins`: modules of the mod's code by file name (a plugin, a plugin that loads plugins, a library), as
+ * `Identity.plugins` names them (any case).
+ */
+export interface IdentityChanges { files?: Readonly<Record<string, string | null>>; plugins?: Readonly<Record<string, string | null>> }
+
+/**
+ * The hashes of a mod after some of its members changed, from its identity and the changed members' new digests alone
+ * (no other file is read): what `readMod` gives the mod with those members as they are now, for an editor that names
+ * the mod as it is being edited. `lines` and `plugins` are the identity's after the change, to change again. A
+ * member's kind is the caller's to say (a game file, a project, a module): one that `readMod` would take for another
+ * kind (a DLL under a game folder) is hashed as the caller says. An operating system's file has no line. The earlier
+ * rules' hashes are not worked out again: no replay was tagged by them with the edited files.
+ */
+export async function identityWith(id: { readonly lines: readonly string[]; readonly plugins: Readonly<Record<string, string>> }, changes: IdentityChanges): Promise<{ lines: string[]; plugins: Record<string, string>; hash: string; withoutPlugins: string }> {
+  const lines = new Map(id.lines.map((l) => [lineName(l), l]));
+  for (const [name, sha] of Object.entries(changes.files ?? {})) {
+    if (/\.fgd$/i.test(name)) continue;
+    const line = /\.fgp$/i.test(name) ? firegraftLine(leafOf(name), sha ?? "") : gameFileLine(name, sha ?? "");
+    if (sha === null || isSystemLine(line)) lines.delete(lineName(line));
+    else lines.set(lineName(line), line);
+  }
+  const plugins: Record<string, string> = { ...id.plugins };
+  for (const [name, sha] of Object.entries(changes.plugins ?? {})) {
+    for (const k of Object.keys(plugins)) if (k.toLowerCase() === name.toLowerCase()) delete plugins[k];
+    if (sha !== null) plugins[name] = sha;
+  }
+  const kept = [...lines.values()].sort();
+  const all = [...kept, ...Object.entries(plugins).map(([n, sha]) => pluginLine(n, sha))];
+  return { lines: kept, plugins, hash: await hashLines(all), withoutPlugins: await hashLines(kept) };
+}
 
 /**
  * The hash of a game run with only some of the mod's code: its other lines (`files`: the game files' and the

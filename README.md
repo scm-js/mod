@@ -59,9 +59,17 @@ Paths use forward slashes, and a folder's files start with the folder's own name
 person gave one file rather than a folder, set `named` to its path. `filesOf(name, files)`
 makes a `ModFiles` of bytes held in memory, and `zipFiles(name, bytes)` of a zip.
 
+The description's `name`, where no `mod.json` names the mod, is the `ModFiles`'s `name` as the
+adapter gives it. `diskFiles` and `zipFiles` take a container's extension off (`Made.exe` is
+`Made`); `filesOf` and an adapter of your own keep what they are given, so one file given by
+its file name keeps its extension (`Made.exe`). Callers that show names side by side should
+make them the same way.
+
 A mod that cannot be read at all (a damaged archive, a patcher exe in a form not known, a
-program with no archive in it) makes `readMod` reject with a `ModReadError`. Anything less
-is said in the description and the rest is read.
+program with no archive in it, a plugin, project or `mod.json` that cannot be read) makes
+`readMod` reject with a `ModReadError`, and only with one: an error underneath it (the archive
+library's, a zip's, the tree's own) is its `cause`. Anything less is said in the description
+and the rest is read. An error your own `progress` or `onFile` throws passes through as it is.
 
 ## What a mod can be
 
@@ -96,10 +104,37 @@ archives and its `Maps` folder are left out and said.
 | `identity` | The hash and its lines (below) |
 | `left` | Every other file given, with why it is not the mod's: a tool's folder, an operating system's file, a read-me beside the game's folders, a program with no archive, … |
 | `said`, `unreadable`, `gameCopy`, `duplicates` | What a person should be told, as messages; names an archive lists and does not hold; a copy of the game left out; two files for one game path |
+| `systemFiles` | An operating system's files (`desktop.ini`, `Thumbs.db`, …) where a file of the mod's would be, loose or in its archives: not the mod's, and counted only by the hash's older rule |
 
 `descriptionText(mod)` prints all of it in plain lines. `fileReaders`, `moduleBytes`,
 `openLayer` and `firegraftFilesOf` read a file, a module or the FireGraft project back out of
 the same `ModFiles`.
+
+An archive's list may name a member twice (in another case, or with the other slash): storm
+finds one file for both, so the layer lists it once, by the last spelling, the one `files`
+takes.
+
+### Reading the files again
+
+`fileReaders(tree, mod)` gives a reader of each game file. It lists the tree once (not at all
+when `readMod` read the same tree object), opens each archive once and reads each zip once,
+and keeps them until you call its `close()`. To keep the
+archives `readMod` opened instead of opening them a second time, give both the same map:
+
+```ts
+const archives = new Map();
+const mod = await readMod(tree, { archives });
+const read = fileReaders(tree, mod, { archives });
+const units = await read(mod.files.find((f) => f.name === "arr\\units.dat")!)();
+read.close(); // or archives.clear(): lets go of every archive
+```
+
+`openLayer`, `firegraftBytes` and `firegraftFilesOf` take the same `{ archives }`. An archive
+`readMod` does not lay (a plugin loader's packing, laid by its folder) is not put in the map,
+and `readMod` lets go of it before it hashes the files.
+
+`readPath` lists the tree once too, and lists it again only for a path it does not hold, in
+case the tree has grown since.
 
 ## The mod's identity
 
@@ -129,6 +164,52 @@ different copies name the same mod alike. `hashLines` is the rule on its own.
 A replay tagged, or a mod kept, before those dates answers to `beforeCode` or `older`; match
 against them, never present them.
 
+- **`earlier`** lists every hash an earlier rule of this reader, or of the readers before it,
+  gave the same files, each as `{ rule, hash, withoutPlugins? }`: `before-code` (the rule
+  before 2026-11-11, with the form without plugins), `before-unlisted-project` (every module
+  had a line, a FireGraft project found only through FireGraft's list had none; only where
+  there is such a project), `older` (with an operating system's files), `game-files` (the game
+  files alone, before code and projects had lines) and `game-files-older` (the same with an
+  operating system's files). A caller that recognises a replay tagged by an earlier rule
+  compares the tag with `hash`, `withoutPlugins` and every hash of `earlier`, and works out
+  nothing itself. One may equal the current hash.
+- **`older.lines`** are the lines of the operating system's files the older rule counted, for
+  a caller that makes a form of its own by that rule (a hash of the files that differ from the
+  person's game, with those lines).
+
+The line of each kind is exported: `gameFileLine(name, sha256)` for a game file (and an
+operating system's file by the older rule), `pluginLine` for every module of the code (a
+plugin, a plugin that loads plugins, a library), `firegraftLine` for the project.
+
+### After an edit
+
+`identityWith(identity, changes)` gives the hashes of the mod with some members changed,
+from the new SHA-256 of each and nothing else read: `changes.files` maps game files (by game
+name or path) and FireGraft projects (by file name) to their new digest, or `null` for one
+removed; `changes.plugins` does the same for modules by file name. It gives `lines`, `plugins`,
+`hash` and `withoutPlugins`, equal to what `readMod` gives the edited files; the earlier rules'
+hashes are not worked out again.
+
+### Naming a mod later
+
+`readMod(tree, { hashFiles: false })` describes a mod without reading its files for the hash,
+so a large mod can be shown at once. Its `identity` then holds only `plugins`, `code`,
+`readsStartupData` and `declared`. `modIdentity(tree, description)` works out the rest later
+from the same files, and gives what a plain `readMod` gives. Two things are still read and
+hashed when hashing is off: each module (its role and interface are told from its bytes, and a
+plugin carried twice is told by its digest, so `Module.sha256` is there) and `mod.json`. Two
+fields are less complete: `unreadable` and the `unheld` message name only what an archive lists
+and does not hold, since a file whose bytes cannot be read is found only when it is read.
+`modIdentity` leaves such a file out of the lines, as `readMod` does, but does not add it to
+the description.
+
+### Which copy of the game, if any
+
+`ReadOptions.tables` gives the prober the person's own copy of the game's tables, which name
+more files to look for in an archive without a list. Such an archive can then be found to hold
+more files, and so have another hash, than it has for a caller that passes none. To name a mod
+as the editor, the command line and Aftermath do, pass no `tables`.
+
 ## Words
 
 Every sentence the package can produce is in `MOD_MESSAGES`, with its key, its English text
@@ -151,6 +232,24 @@ version. The English text may change in a minor version, so a catalogue keyed by
 keeps working; one keyed by the English template shows a changed sentence in English until
 it is translated again.
 
+`MOD_MESSAGE_GROUPS` lists the keys by where they are shown, for a caller that translates only
+some of them: `error` (the `detail` of a `ModReadError`), `reason` (a reason inside one, and
+the `detail` of a `PatcherError` or `ZipError`), `progress` (what `ReadOptions.progress`
+hears), `said` (`ModDescription.said`), `loader`, `named`, `entry`, `why` and `description`.
+Each message says its own groups in `MOD_MESSAGES` (`in`), and `ModMessageKeyIn<"progress">`
+is the type of a group's keys. To show every error with its reason, translate `error` and
+`reason`.
+
+When the archive library cannot open an archive, `archive-unopenable` and
+`exe-archive-unopenable` give its English text as `why`, as 1.0.0 did, and the same reason as a
+message beside it, `reason`, keyed by the library's kind of error (`mpq-damaged`,
+`mpq-no-header`, `mpq-version`, `mpq-compression`, `mpq-io`, `mpq-file-missing`, else
+`mpq-other`) with that text as its `detail`. The English sentence shows `why` and reads as it
+always has. A caller that translates renders `reason` where it is present (its catalogue's
+template may use `{reason}` in place of `{why}`: the reason arrives translated by the same
+function) and falls back to `why`. The library's error is the `ModReadError`'s `cause`. A
+message's parameters that its English text does not show are its `hidden` in `MOD_MESSAGES`.
+
 ## The parts on their own
 
 The main surface is `readMod`, the description and its identity. The rest is the pieces
@@ -163,6 +262,9 @@ The main surface is `readMod`, the description and its identity. The rest is the
   from its bytes, and the interface a loader would enter it by.
 - `readZip`, `zipFiles`: a zip's members.
 - `probeNames`: the names to look for in an archive with no list of its files.
+- `gameName`: a path as the game names it (lower case, backslashes). A leading backslash is
+  kept: storm finds a member by its name as stored, so `\arr\units.dat` and `arr\units.dat`
+  are two members.
 - `leafOf`, `folderOf`: the last part of a path (either slash) and the folder it is in
   (forward slashes), as the reader takes them apart.
 - `kindOf`, `tableShape`, `gameOf`: a file's kind, a table's layout (the game's own,
@@ -178,7 +280,11 @@ The main surface is `readMod`, the description and its identity. The rest is the
   with some turned off.
 - `runningHash`: the hash of a game that runs only some of the mod's code.
 - `inGamePaths`: whether files handed over are already in the game's paths (read them with
-  `layout: "game"`).
+  `layout: "game"`). In that layout a module's role and order are told from its path alone:
+  a `.qdp` or `.bwl` anywhere is a plugin, loaded by name, and a `.dll` under `plugins/` is a
+  library. A plugin a patcher exe carried, handed over as `plugins/qdp.dll`, is then a library
+  (its line in the hash is the same), and the patcher's own order of its plugins is not
+  kept.
 - `namesToProbe`: the names `probeNames` looks for, before asking an archive.
 - `ENTRY_WORDS`: the interface a module is entered by, as a message.
 - `patcherPluginWords`: one of `named.patcherPlugins` as a message, for a short list of the

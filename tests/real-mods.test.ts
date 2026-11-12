@@ -12,9 +12,12 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { modIdentity } from "../src/index.ts";
 import { readModAt } from "../src/node.ts";
 
 interface Pin { hash: string; withoutPlugins: string; lines: number; plugins: number; older?: string; beforeCode?: string }
+/** What each earlier rule gave the mod (`identity.earlier`, 1.1.0): a hash, or a hash and its form without plugins. */
+type Earlier = Record<string, string | [string, string]>;
 
 const FIXTURES = process.env.MOD_FIXTURES;
 const MODS: [string, string, Pin][] = [
@@ -31,6 +34,27 @@ const MODS: [string, string, Pin][] = [
 const COSMONARCHY = process.env.MOD_FIXTURE_COSMONARCHY;
 const COSMONARCHY_PIN: Pin = { hash: "c94acdf31982fa4b", withoutPlugins: "db23a1f9dd8cef66", lines: 7768, plugins: 8, older: "1c41a2d7701fe842", beforeCode: "20e1c6d89ae2af75" };
 
+// The earlier rules' hashes, by mod (1.1.0). SC Revolution's `before-unlisted-project` is the hash scm-sim's reader gave
+// it before 1.0.0 (693bf4a83f3a69a1).
+const BURNING_GROUND: Earlier = { "before-code": ["0ed055cf80a95bd0", "0ed055cf80a95bd0"], older: "45f548e49bd6a097", "game-files": "1ad1ed01ba8f3bb5", "game-files-older": "33d1d9d16d7f7c6f" };
+const SC_REVOLUTION: Earlier = { "before-code": ["90b8c22d9cb4ba31", "90b8c22d9cb4ba31"], "before-unlisted-project": ["693bf4a83f3a69a1", "90b8c22d9cb4ba31"], "game-files": "90b8c22d9cb4ba31" };
+const TRIFRESH: Earlier = { "before-code": ["ea488d3ac3575bda", "ea488d3ac3575bda"], "game-files": "42ddbf49de871747" };
+const EARLIER: Record<string, Earlier> = {
+  "burning-ground/unpacked": BURNING_GROUND, "burning-ground/unpacked/BG_v2.00.exe": BURNING_GROUND,
+  "sc-revolution/unpacked/SC Revolution 2.2.exe": SC_REVOLUTION, "sc-revolution/unpacked": SC_REVOLUTION,
+  "trifresh/unzipped/TriFresh.exe": TRIFRESH, "trifresh/unzipped": TRIFRESH,
+  "eudenabler/mod": { "before-code": ["6ee0359ce4a96176", "e3b0c44298fc1c14"], "game-files": "e3b0c44298fc1c14" },
+};
+const COSMONARCHY_EARLIER: Earlier = { "before-code": ["20e1c6d89ae2af75", "db23a1f9dd8cef66"], older: ["1c41a2d7701fe842", "49815591a7a5a504"], "game-files": "4b7c254bb75ac918", "game-files-older": "797e887dbcec89fb" };
+
+/** Read without hashing, then named (`modIdentity`): the identity a plain read gives, and the earlier rules' hashes. */
+const laterOf = async (path: string): Promise<{ same: boolean; earlier: Earlier }> => {
+  const full = (await readModAt(path)).description.identity;
+  const { description, files } = await readModAt(path, { hashFiles: false });
+  const later = await modIdentity(files, description);
+  return { same: JSON.stringify(later) === JSON.stringify(full), earlier: Object.fromEntries(full.earlier!.map((e) => [e.rule, e.withoutPlugins ? [e.hash, e.withoutPlugins] : e.hash])) };
+};
+
 const identityOf = async (path: string): Promise<Pin> => {
   const { identity: id } = (await readModAt(path)).description;
   return { hash: id.hash, withoutPlugins: id.withoutPlugins, lines: id.lines.length, plugins: Object.keys(id.plugins).length, ...(id.older ? { older: id.older.hash } : {}), ...(id.beforeCode ? { beforeCode: id.beforeCode } : {}) };
@@ -42,4 +66,12 @@ describe("real mods' identities", () => {
     it.skipIf(!at || !existsSync(at))(what, async () => expect(await identityOf(at)).toEqual(pin), 120_000);
   }
   it.skipIf(!COSMONARCHY || !existsSync(COSMONARCHY))("Cosmonarchy (its release folder)", async () => expect(await identityOf(COSMONARCHY!)).toEqual(COSMONARCHY_PIN), 600_000);
+});
+
+describe("real mods named later, and what earlier rules named them", () => {
+  for (const [what, path] of MODS) {
+    const at = FIXTURES ? join(FIXTURES, path) : "";
+    it.skipIf(!at || !existsSync(at))(what, async () => expect(await laterOf(at)).toEqual({ same: true, earlier: EARLIER[path] }), 240_000);
+  }
+  it.skipIf(!COSMONARCHY || !existsSync(COSMONARCHY))("Cosmonarchy (its release folder)", async () => expect(await laterOf(COSMONARCHY!)).toEqual({ same: true, earlier: COSMONARCHY_EARLIER }), 600_000);
 });
