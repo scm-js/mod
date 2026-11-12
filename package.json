@@ -1,0 +1,51 @@
+{
+  "name": "@scm-js/mod",
+  "version": "1.0.0",
+  "description": "Read a StarCraft: Brood War mod (a folder, an .mpq, MPQDraft's or FireGraft's self-executing exe, a zip, plugins) into one description: its layers, its code in the loader's order, its FireGraft project, and its hash. Nothing is run.",
+  "keywords": ["starcraft", "brood war", "mod", "mpq", "mpqdraft", "firegraft", "sempq", "gptp", "plugin", "qdp"],
+  "homepage": "https://github.com/scm-js/mod#readme",
+  "bugs": { "url": "https://github.com/scm-js/mod/issues" },
+  "repository": { "type": "git", "url": "git+https://github.com/scm-js/mod.git" },
+  "license": "MIT",
+  "author": "scmJS (https://github.com/scm-js)",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    ".": {
+      "import": { "types": "./dist/index.d.mts", "default": "./dist/index.mjs" },
+      "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
+    },
+    "./node": {
+      "import": { "types": "./dist/node.d.mts", "default": "./dist/node.mjs" },
+      "require": { "types": "./dist/node.d.cts", "default": "./dist/node.cjs" }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check:publish": "publint --strict",
+    "check:exports": "attw --pack . --profile node16",
+    "verify": "npm run typecheck && npm test && npm run build && npm run check:publish && npm run check:exports",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm test"
+  },
+  "dependencies": {
+    "mopaq": "^1.6.3"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@types/node": "^26.6.6",
+    "publint": "^0.3.25",
+    "tsdown": "^0.23.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  },
+  "engines": { "node": ">=20.0.0" },
+  "publishConfig": { "access": "public" }
+}
