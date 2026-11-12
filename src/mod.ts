@@ -155,8 +155,12 @@ export interface Identity {
    * names had none. The same mod with all of its code; a replay tagged then, and a mod kept then, answer to it.
    */
   beforeCode?: string;
-  /** The hashes it had while an operating system's files had lines (until 2026-11-09), where such files were seen. */
-  older?: OlderHashes;
+  /**
+   * The hashes it had while an operating system's files had lines (until 2026-11-09), where such files were seen, and
+   * `files`: the game names of those files whose lines that hash had and this one has not (a loose file where a game
+   * file would be, or a member of the mod's archive, such as `glue\battle.net\backgrounds\thumbs.db`).
+   */
+  older?: OlderHashes & { files: string[] };
   /** The hash its `mod.json` says (a tool that lays a mod out for a runner writes one): the mod's, as that tool read it. */
   declared?: { hash: string; withoutPlugins?: string };
   /** It has code to run (a plugin to load, or a FireGraft project): whoever plays it must run the game's code live. */
@@ -350,8 +354,9 @@ export async function readMod(tree: ModFiles, o: ReadOptions = {}): Promise<ModD
         if (as) leaf = `${leaf}.${as}`;
       }
       if (PLUGIN_FILE.test(leaf)) { if (!sameName(pluginPieces, leaf)) pluginPieces.push(p); else left.push({ path: p.path, why: "same-name" }); }
-      // (a DLL in a plugins folder: what a plugin may import)
-      if (/\.dll$/.test(leaf) && lower.split("/").slice(0, -1).includes("plugins")) { if (!sameName(libraryPieces, leaf)) libraryPieces.push(p); else left.push({ path: p.path, why: "same-name" }); }
+      // (a DLL in a plugins folder: what a plugin may import. A library, in either layout, and so no game file.)
+      const library = /\.dll$/.test(leaf) && lower.split("/").slice(0, -1).includes("plugins");
+      if (library) { if (!sameName(libraryPieces, leaf)) libraryPieces.push(p); else left.push({ path: p.path, why: "same-name" }); }
       else if (/\.dll$/.test(leaf) && !game) dlls.push(p);
       // (a storm network provider, `*.snp` in the game's folder: a module of the mod's, which storm loads for a game
       // between people; its file stays where it was among the files, so no hash moves)
@@ -360,7 +365,7 @@ export async function readMod(tree: ModFiles, o: ReadOptions = {}): Promise<ModD
         if (!takeFiregraft({ name: p.path, size: p.size, place: folderOf(p.path), path: p.path, read: p.read })) left.push({ path: p.path, why: "same-name" });
         continue;
       }
-      if (PLUGIN_FILE.test(leaf) || (!game && /\.dll$/.test(leaf))) continue;
+      if (PLUGIN_FILE.test(leaf) || library || (!game && /\.dll$/.test(leaf))) continue;
       if (isModJsonPath(p.path, base) && (!modJson || p.path.split("/").length < modJson.path.split("/").length)) modJson = p;
       if (!/\.(zip|mpq|exe)$/.test(leaf)) { loose.push(p); continue; }
       progress(say("opening", { path: p.path }));
@@ -611,11 +616,11 @@ export async function readMod(tree: ModFiles, o: ReadOptions = {}): Promise<ModD
   const beforeCode = before !== hash && before !== withoutPlugins ? before : undefined;
   // The hash it had while an operating system's files counted, where any were seen: every line by the rule then, theirs
   // with them (and the plugin files' lines alone, as the code had then).
-  let older: OlderHashes | undefined;
+  let older: Identity["older"];
   if (system.size) {
-    const were = [...was];
-    for (const [name, read] of system) { try { were.push(`${name}\t${await sha256Hex(await read())}`); } catch { /* left out then too */ } }
-    if (were.length > was.length) older = { hash: await hashLinesAsWere([...were, ...fileLines]), ...(fileLines.length ? { withoutPlugins: await hashLinesAsWere(were) } : {}) };
+    const were = [...was], counted: string[] = [];
+    for (const [name, read] of system) { try { were.push(`${name}\t${await sha256Hex(await read())}`); counted.push(name); } catch { /* left out then too */ } }
+    if (counted.length) older = { hash: await hashLinesAsWere([...were, ...fileLines]), ...(fileLines.length ? { withoutPlugins: await hashLinesAsWere(were) } : {}), files: counted.sort() };
   }
 
   // mod.json: its name, its makers' address, its races, the game it is for, the hash a tool wrote.

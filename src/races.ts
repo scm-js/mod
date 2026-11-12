@@ -73,7 +73,7 @@ export const saidRaces = (value: unknown): DataSetRace[] | undefined => (Array.i
 /** How many entries the game's own `rez\network.tbl` has (1.16.1's, the same in Remastered): a mod's past it are its own. */
 export const GAME_NETWORK_TBL_ENTRIES = 168;
 /** The letters the game's own per-race files go by: Zerg, Terran, Protoss and the console of no race. */
-const GAME_RACE_LETTERS = new Set(["z", "t", "p", "n"]);
+const GAME_RACE_LETTERS = /* @__PURE__ */ new Set(["z", "t", "p", "n"]);
 
 /** What a mod's files suggest about the races it adds: hints for a person naming them, never names in themselves. */
 export interface RaceCandidates {

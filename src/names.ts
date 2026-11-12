@@ -10,7 +10,7 @@ import { DAT_TABLES, gameFileNames, gameName, STARTUP_NAMES, TILESET_NAMES } fro
 import { ModReadError, say } from "./messages.ts";
 
 /** The game's strings' code page. */
-const WINDOWS_1252 = new TextDecoder("windows-1252");
+const WINDOWS_1252 = /* @__PURE__ */ new TextDecoder("windows-1252");
 
 /** A string table (`.tbl`): a count, an offset a string, the strings ending in a zero. Throws `ModReadError` on one that does not hold together. */
 export function tblStrings(bytes: Uint8Array): string[] {

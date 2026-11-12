@@ -121,8 +121,9 @@ different copies name the same mod alike. `hashLines` is the rule on its own.
   why `beforeCode` is absent for it.
 - **`older`**: until 2026-11-09 the files an operating system leaves in folders
   (`desktop.ini`, `Thumbs.db`, `.DS_Store`, a zip's `__MACOSX/`) had lines. Where the mod
-  holds such files, `older` is its hash and its hash without plugins by that rule. They have
-  no line now, because not every way of handing a folder over hands them over.
+  holds such files, `older` is its hash and its hash without plugins by that rule, and
+  `older.files` names them (loose, or packed in the mod's archive). They have no line now,
+  because not every way of handing a folder over hands them over.
 - **`declared`**: the hash a `mod.json` says, written by a tool that laid the mod out.
 
 A replay tagged, or a mod kept, before those dates answers to `beforeCode` or `older`; match
