@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-11-12
+
+### Fixed
+- 1.1.0 changed the result type of `readMod` and `readModAt` for a caller that passes a
+  `ReadOptions` value on (`readMod(files, o)` with `o: ReadOptions`): it became
+  `ModDescription | UnhashedDescription`, so code written for 1.0.0 that kept the result as a
+  `ModDescription` no longer type-checked. 1.1.1 restores it: a `ReadOptions` value always
+  gives a `ModDescription`. `ReadOptions.hashFiles` is now `true` or absent; reading without
+  hashing takes the new `UnhashedReadOptions` (`hashFiles: false`), and a choice made at run
+  time the new `HashChoiceReadOptions` (`hashFiles` a boolean, either description). Nothing
+  changes at run time.
+- 1.1.0 made `reason` a required parameter of `archive-unopenable` and
+  `exe-archive-unopenable`, so `say("archive-unopenable", { path, why })`, written for 1.0.0,
+  no longer type-checked. A parameter a message's English text does not show (`hidden`) is
+  now optional in `ModMessageParams`, so that call compiles again.
+
+### Added
+- `tests/compat/v1.0-callers.ts`: code written against 1.0.0 as its callers write it, and
+  every name 1.0.0 exported, which `npm run typecheck` must compile with no cast. The names
+  each published version exported are kept in `tests/compat/exports-<version>.json`, and
+  `npm run check:exports` fails when the built declarations no longer export one.
+
 ## [1.1.0] - 2026-11-12
 
 ### Added

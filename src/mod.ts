@@ -179,10 +179,10 @@ export interface Identity {
   earlier?: EarlierHash[];
 }
 
-/** What of the identity is known without hashing the mod's files (`ReadOptions.hashFiles: false`). */
+/** What of the identity is known without hashing the mod's files (`UnhashedReadOptions`). */
 export type UnhashedIdentity = Pick<Identity, "plugins" | "declared" | "code" | "readsStartupData">;
 /**
- * A description read without hashing the mod's files (`ReadOptions.hashFiles: false`): the same as `readMod` gives, but
+ * A description read without hashing the mod's files (`UnhashedReadOptions`): the same as `readMod` gives, but
  * that its identity holds only what needs no file hashed (`modIdentity` works out the rest), and that `unreadable` and
  * the `unheld` sentence of `said` hold only the names an archive lists and does not hold (a file whose bytes cannot be
  * read is found when it is read for the hash).
@@ -266,12 +266,12 @@ export interface ReadOptions {
   /** Each game file's bytes as they are hashed (a caller may compare them with the person's game), by game name. */
   onFile?: (file: LayerFile & { layer: number }, bytes: Uint8Array) => Promise<void> | void;
   /**
-   * false: the mod's files are not read for its hash, so a large mod is described at once (`UnhashedDescription`); its
-   * identity is worked out later by `modIdentity`, from the description and the same files. The modules are still read
-   * and hashed (`Module.sha256`: a module is told by its bytes, and a plugin carried twice by its digest), and so is
-   * `mod.json`. `onFile` is not called.
+   * Absent or true: the mod's files are read and hashed, and the description is a `ModDescription`. A value of this type
+   * never turns hashing off, so a caller passing its `ReadOptions` on (as every caller of 1.0.0 does) always gets a
+   * `ModDescription`. To read without hashing, pass `UnhashedReadOptions` (`hashFiles: false`); to decide at run time,
+   * `HashChoiceReadOptions`.
    */
-  hashFiles?: boolean;
+  hashFiles?: true;
   /**
    * A map the reader puts each archive it opened into, by its path in the tree (`Layer.path`; the archives laid, not a
    * plugin loader's packing laid by its folder): hand it to `fileReaders`, `modIdentity`, `openLayer` or
@@ -280,6 +280,19 @@ export interface ReadOptions {
    */
   archives?: Map<string, Archive>;
 }
+
+/**
+ * The options that read a mod without hashing its files (`hashFiles: false`): the mod is described at once
+ * (`UnhashedDescription`) and its identity is worked out later by `modIdentity`, from the description and the same
+ * files. The modules are still read and hashed (`Module.sha256`: a module is told by its bytes, and a plugin carried
+ * twice by its digest), and so is `mod.json`. `onFile` is not called.
+ */
+export type UnhashedReadOptions = Omit<ReadOptions, "hashFiles"> & { hashFiles: false };
+/**
+ * The options of a caller that decides at run time whether to hash (`hashFiles` a boolean it holds): `readMod` then
+ * gives `ModDescription | UnhashedDescription`, and the caller tells them apart by `"hash" in d.identity`.
+ */
+export type HashChoiceReadOptions = Omit<ReadOptions, "hashFiles"> & { hashFiles: boolean };
 
 /* ── The reading ─────────────────────────────────────────────── */
 
@@ -384,13 +397,14 @@ const projectRead = (name: string, archive: string, read: () => Promise<Uint8Arr
 };
 
 /**
- * The description of the mod in `tree`. Throws `ModReadError` for what cannot be read at all. With `hashFiles: false`
- * the mod's files are not read for its hash (`UnhashedDescription`; `modIdentity` works it out later).
+ * The description of the mod in `tree`. Throws `ModReadError` for what cannot be read at all. With `ReadOptions` (or
+ * none) it is a `ModDescription`, as it has always been; with `UnhashedReadOptions` (`hashFiles: false`) the mod's
+ * files are not read for its hash (`UnhashedDescription`; `modIdentity` works it out later).
  */
-export function readMod(tree: ModFiles, o: ReadOptions & { hashFiles: false }): Promise<UnhashedDescription>;
-export function readMod(tree: ModFiles, o?: ReadOptions & { hashFiles?: true }): Promise<ModDescription>;
-export function readMod(tree: ModFiles, o?: ReadOptions): Promise<ModDescription | UnhashedDescription>;
-export async function readMod(tree: ModFiles, o: ReadOptions = {}): Promise<ModDescription | UnhashedDescription> {
+export function readMod(tree: ModFiles, o: UnhashedReadOptions): Promise<UnhashedDescription>;
+export function readMod(tree: ModFiles, o?: ReadOptions): Promise<ModDescription>;
+export function readMod(tree: ModFiles, o: HashChoiceReadOptions): Promise<ModDescription | UnhashedDescription>;
+export async function readMod(tree: ModFiles, o: ReadOptions | UnhashedReadOptions | HashChoiceReadOptions = {}): Promise<ModDescription | UnhashedDescription> {
   const progress: (m: ModMessageInGroup<"progress">) => void = o.progress ?? (() => {});
   const game = tree.layout === "game";
   const listed = await tree.list();
@@ -939,7 +953,7 @@ export function fileReaders(tree: ModFiles, d: Pick<ModDescription, "layers">, o
 }
 
 /**
- * The identity of a mod read without hashing (`ReadOptions.hashFiles: false`), from its description and the same files:
+ * The identity of a mod read without hashing (`UnhashedReadOptions`), from its description and the same files:
  * what `readMod` would have given. Each game file, FireGraft project and operating system's file is read and hashed;
  * the modules' digests are the description's. `archives`: as `fileReaders` takes them (without, what it opens is let go
  * when it is done). A file that cannot be read has no line, as in `readMod`; it is not added to the description's

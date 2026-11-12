@@ -6,7 +6,7 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { readMod, type ModDescription, type ReadOptions, type UnhashedDescription } from "./mod.ts";
+import { readMod, type HashChoiceReadOptions, type ModDescription, type ReadOptions, type UnhashedDescription, type UnhashedReadOptions } from "./mod.ts";
 import type { ModEntry, ModFiles } from "./files.ts";
 import { ModReadError, say } from "./messages.ts";
 
@@ -68,10 +68,10 @@ export function diskFiles(path: string): DiskFiles {
 const bytesOf = (b: Buffer): Uint8Array => (b.byteOffset === 0 && b.byteLength === b.buffer.byteLength ? new Uint8Array(b.buffer, 0, b.byteLength) : new Uint8Array(b));
 
 /** The mod at `path` read (`readMod`), with the tree it was read from. */
-export function readModAt(path: string, o: ReadOptions & { hashFiles: false }): Promise<{ description: UnhashedDescription; files: DiskFiles }>;
-export function readModAt(path: string, o?: ReadOptions & { hashFiles?: true }): Promise<{ description: ModDescription; files: DiskFiles }>;
-export function readModAt(path: string, o?: ReadOptions): Promise<{ description: ModDescription | UnhashedDescription; files: DiskFiles }>;
-export async function readModAt(path: string, o: ReadOptions = {}): Promise<{ description: ModDescription | UnhashedDescription; files: DiskFiles }> {
+export function readModAt(path: string, o: UnhashedReadOptions): Promise<{ description: UnhashedDescription; files: DiskFiles }>;
+export function readModAt(path: string, o?: ReadOptions): Promise<{ description: ModDescription; files: DiskFiles }>;
+export function readModAt(path: string, o: HashChoiceReadOptions): Promise<{ description: ModDescription | UnhashedDescription; files: DiskFiles }>;
+export async function readModAt(path: string, o: ReadOptions | UnhashedReadOptions | HashChoiceReadOptions = {}): Promise<{ description: ModDescription | UnhashedDescription; files: DiskFiles }> {
   const files = diskFiles(path);
-  return { description: await readMod(files, o), files };
+  return { description: await readMod(files, o as HashChoiceReadOptions), files };
 }
